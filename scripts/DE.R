@@ -98,10 +98,10 @@ colnames(lrt_df_with_FDR) <- c("id", "logFC", "logCPM", "LR", "PValue", "FDR")
 
 ensembl_gtf <- import(opt$gtf)
 ensembl_gene_name_type <- as.data.frame(ensembl_gtf[,c("transcript_id","source","gene_id","gene_biotype","type")])
-ensembl_gene_name_type_small <- ensembl_gene_name_type[,c("gene_id","gene_biotype","type","seqnames","start","end")]
+ensembl_gene_name_type_small <- ensembl_gene_name_type[,c("gene_id","gene_biotype","type","seqnames","start","end", "strand")]
 ensembl_gene_name_type_small_only_genes <- ensembl_gene_name_type_small[ensembl_gene_name_type_small$type=="gene",]
 ensembl_gene_name_type_small_only_genes_unique <- unique(ensembl_gene_name_type_small_only_genes)
-colnames(ensembl_gene_name_type_small_only_genes_unique) <- c("id","gene_biotype","type","chromosome","start","end")
+colnames(ensembl_gene_name_type_small_only_genes_unique) <- c("id","gene_biotype","type","chromosome","start","end", "strand")
 final_table <- merge(lrt_df_with_FDR, ensembl_gene_name_type_small_only_genes_unique, by="id", all.x=TRUE)
 
 write.table(final_table,
