@@ -11,6 +11,8 @@ import os
 import HTSeq
 import pandas as pd
 import seaborn as sns
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser, RawTextHelpFormatter
 

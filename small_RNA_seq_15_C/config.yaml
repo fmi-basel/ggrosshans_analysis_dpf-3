@@ -1,0 +1,33 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+
+  # annotation
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+
+  # rule params
+  adapter: "AACTGTAGGCACCATCAAT"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  # samples
+  experiment_samples: {
+    WT_dpf3: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F],
+    WT_other: [wild_type_G, wild_type_H, wild_type_I],
+    Dpf_3_null: [Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C],
+    Dpf_3_S784A: [Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C],
+    alg_4_alg_3: [alg_4_alg_3_A, alg_4_alg_3_B, alg_4_alg_3_C],
+    mut_2: [mut_2_A, mut_2_B, mut_2_C],
+    mut_7: [mut_7_A, mut_7_B, mut_7_C]
+  }
+
+  # comparisons
+  combinations: [[WT_dpf3, Dpf_3_null], [WT_dpf3, Dpf_3_S784A], [WT_other, alg_4_alg_3], [WT_other, mut_2], [WT_other, mut_7]]
+...

@@ -1,0 +1,8 @@
+---
+channels:
+  - conda-forge
+  - bioconda
+  - biocomp
+dependencies:
+  - alfa=1.1.1
+...

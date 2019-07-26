@@ -111,19 +111,24 @@ def main():
     bam = HTSeq.BAM_Reader(options.bam)
 
     for line in gtf:
-        chrom = str(line.iv.chrom)
-        start = str(line.iv.start + 1)
-        end = str(line.iv.end)
-        strand = str(line.iv.strand)
-        transcript_biotype = line.attr["transcript_biotype"]
 
-        if transcript_biotype in filter_RNAs:
-            region_string = chrom + ":" + start + "-" + end
-            for aln in bam.fetch(region=region_string):
-                if aln.iv.strand == strand:
-                    read_name = aln.read.name
-                    if read_name not in reads_names_to_exclude:
-                        reads_names_to_exclude[read_name] = read_name
+        if line.type == "exon":
+            try:
+                chrom = str(line.iv.chrom)
+                start = str(line.iv.start + 1)
+                end = str(line.iv.end)
+                strand = str(line.iv.strand)
+                transcript_biotype = line.attr["transcript_biotype"]
+            except:
+                continue
+
+            if transcript_biotype in filter_RNAs:
+                region_string = chrom + ":" + start + "-" + end
+                for aln in bam.fetch(region=region_string):
+                    if aln.iv.strand == strand:
+                        read_name = aln.read.name
+                        if read_name not in reads_names_to_exclude:
+                            reads_names_to_exclude[read_name] = read_name
 
     # parse bam file based on chromosomes
     if options.verbose:
