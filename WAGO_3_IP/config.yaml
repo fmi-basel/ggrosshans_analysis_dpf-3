@@ -1,0 +1,28 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+
+  # annotation
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+
+  # rule params
+  adapter: "TGGAATTCTCGGGTGCCAAGG"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  # samples
+  experiment_samples: {
+    N2_Input_Rpph: ["N2_Input_Rep1_Rpph", "N2_Input_Rep2_Rpph", "N2_Input_Rep3_Rpph"],
+    N2_xf119_Rpph: ["N2_xf119_Rep1_Rpph", "N2_xf119_Rep2_Rpph", "N2_xf119_Rep3_Rpph"]
+  }
+
+  # comparisons
+  combinations: [["N2_Input_Rpph", "N2_xf119_Rpph"]]
+...

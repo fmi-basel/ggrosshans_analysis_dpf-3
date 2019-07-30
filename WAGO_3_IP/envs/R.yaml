@@ -1,0 +1,7 @@
+---
+channels:
+  - bioconda/label/gcc7
+  - conda-forge/label/gcc7
+dependencies:
+  - r-base=3.5.1
+...
