@@ -25,9 +25,11 @@
     Dpf_3_S784A: [Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C],
     alg_4_alg_3: [alg_4_alg_3_A, alg_4_alg_3_B, alg_4_alg_3_C],
     mut_2: [mut_2_A, mut_2_B, mut_2_C],
-    mut_7: [mut_7_A, mut_7_B, mut_7_C]
+    mut_7: [mut_7_A, mut_7_B, mut_7_C],
+    WT_dpf3_first: [wild_type_A, wild_type_B, wild_type_C],
+    WT_dpf3_second: [wild_type_D, wild_type_E, wild_type_F]
   }
 
   # comparisons
-  combinations: [[WT_dpf3, Dpf_3_null], [WT_dpf3, Dpf_3_S784A], [WT_other, alg_4_alg_3], [WT_other, mut_2], [WT_other, mut_7]]
+  combinations: [[WT_dpf3, Dpf_3_null], [WT_dpf3, Dpf_3_S784A], [WT_other, alg_4_alg_3], [WT_other, mut_2], [WT_other, mut_7], [WT_dpf3_first, Dpf_3_null], [WT_dpf3_second, Dpf_3_S784A]]
 ...
