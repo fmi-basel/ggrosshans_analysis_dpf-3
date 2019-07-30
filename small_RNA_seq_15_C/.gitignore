@@ -10,4 +10,5 @@ logs
 nohup.out
 results
 rulegraph.png
+notebooks
 notebooks/.ipynb_checkpoints/
