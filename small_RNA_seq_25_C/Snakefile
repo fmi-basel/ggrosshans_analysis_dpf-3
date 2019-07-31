@@ -44,10 +44,10 @@ rule finish:
                                  zip,
                                  experiment1 = [i[0]  for i in list(config["combinations"])],
                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),
-        # pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
+        # # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),  
+        pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
+        pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
+        pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
         # pdf_alfa_aligment_statistics_unique_mappers_filter_miRNAs = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf"), sample=get_samples())
         # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
 
@@ -103,31 +103,30 @@ rule extract_miRNA_sequences:
 #     shell:
 #         "(sort -k1,1 -k4,4n -k5,5nr {input.gtf} | sed 's/gene_biotype/biotype/' > {output.gtf}) &> {log}"
 
-# ################################################################################
-# ### Generate alfa genome index
-# ################################################################################
+################################################################################
+### Generate alfa genome index
+################################################################################
 
-# rule alfa_genome_index:
-#     input:
-#         gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),
-#         chr_len = config["genome_size"]
-#     output:
-#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
-#         alfa_index_unstranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.unstranded.ALFA_index")
-#     params:
-#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index")
-#     log:
-#         os.path.join(config["local_log"], "alfa_genome_index.log")
-#     threads:    8
-#     conda:
-#         "envs/alfa.yaml"
-#     shell:
-#         "(alfa \
-#         -a {input.gtf} \
-#         -g {params.genome_index_basename} \
-#         --chr_len {input.chr_len} \
-#         -p {threads}) &> {log}"
-
+rule alfa_genome_index:
+    input:
+        gtf = config["gtf"],
+        chr_len = config["genome_size"]
+    output:
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
+        alfa_index_unstranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.unstranded.ALFA_index")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index")
+    log:
+        os.path.join(config["local_log"], "alfa_genome_index.log")
+    threads:    8
+    conda:
+        "envs/alfa.yaml"
+    shell:
+        "(alfa \
+        -a {input.gtf} \
+        -g {params.genome_index_basename} \
+        --chr_len {input.chr_len} \
+        -p {threads}) &> {log}"
 
 ################################################################################
 ### Fastqc
@@ -248,41 +247,41 @@ rule samtools_sort_and_index:
         -o {output.bam}; \
         samtools index -@ {threads} {output.bam} {output.bai};) &> {log}"
 
-# ################################################################################
-# ### Determine alignment statistics
-# ################################################################################
+################################################################################
+### Determine alignment statistics
+################################################################################
 
-# rule alfa_aligment_statistics:
-#     input:
-#         bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam"), sample1=get_samples()),
-#         bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam.bai"), sample1=get_samples()),
-#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
-#     output:
-#         pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
-#     params:
-#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
-#         output_prefix = "alfa_aligment_statistics",
-#         output_dir = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics"),
-#         bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam ")) +str("{sample1}"), sample1=get_samples()),
-#         strandness = "forward"
-#     log:
-#         os.path.join(config["local_log"],"alfa_aligment_statistics.log")
-#     threads:    8
-#     conda:
-#         "envs/alfa.yaml"
-#     shell:
-#         "(mkdir -p {params.output_dir}; \
-#         alfa \
-#         -g {params.genome_index_basename} \
-#         --bam {params.bam_and_sample_name} \
-#         -d 2 \
-#         --keep_ambiguous \
-#         --processors {threads} \
-#         --strandness {params.strandness} \
-#         --pdf {params.output_prefix} \
-#         --temp_dir {params.output_dir} \
-#         -o {params.output_dir}; \
-#         ) &> {log}"
+rule alfa_aligment_statistics:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics",
+        output_dir = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics"),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics.log")
+    threads:    8
+    conda:
+        "envs/alfa.yaml"
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
 
 ################################################################################
 ### Filter small RNAs that we are not interested in
@@ -316,41 +315,41 @@ rule filter_RNAs:
         --verbose; \
         samtools index -@ {threads} {output.bam} {output.bai};)"
 
-# ################################################################################
-# ### Determine alignment statistics after filtering reads
-# ################################################################################
+################################################################################
+### Determine alignment statistics after filtering reads
+################################################################################
 
-# rule alfa_aligment_statistics_filter:
-#     input:
-#         bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam"), sample1=get_samples()),
-#         bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam.bai"), sample1=get_samples()),
-#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
-#     output:
-#         pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf")
-#     params:
-#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
-#         output_prefix = "alfa_aligment_statistics_filter",
-#         output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter")),
-#         bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam ")) +str("{sample1}"), sample1=get_samples()),
-#         strandness = "forward"
-#     log:
-#         os.path.join(config["local_log"],"alfa_aligment_statistics_filter.log")
-#     threads:    8
-#     conda:
-#         "envs/alfa.yaml"
-#     shell:
-#         "(mkdir -p {params.output_dir}; \
-#         alfa \
-#         -g {params.genome_index_basename} \
-#         --bam {params.bam_and_sample_name} \
-#         -d 2 \
-#         --keep_ambiguous \
-#         --processors {threads} \
-#         --strandness {params.strandness} \
-#         --pdf {params.output_prefix} \
-#         --temp_dir {params.output_dir} \
-#         -o {params.output_dir}; \
-#         ) &> {log}"
+rule alfa_aligment_statistics_filter:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics_filter",
+        output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter")),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics_filter.log")
+    threads:    8
+    conda:
+        "envs/alfa.yaml"
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
 
 ################################################################################
 ### count sequences
@@ -483,41 +482,41 @@ rule samtools_keep_unique_mappers:
         samtools index -@ {threads} {output.bam} {output.bai}; \
         ) &> {log}"
 
-# ################################################################################
-# ### Determine alignment statistics unique mappers
-# ################################################################################
+################################################################################
+### Determine alignment statistics unique mappers
+################################################################################
 
-# rule alfa_aligment_statistics_unique_mappers:
-#     input:
-#         bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"), sample1=get_samples()),
-#         bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), sample1=get_samples()),
-#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
-#     output:
-#         pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
-#     params:
-#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
-#         output_prefix = "alfa_aligment_statistics_unique_mappers",
-#         output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers")),
-#         bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam ")) +str("{sample1}"), sample1=get_samples()),
-#         strandness = "forward"
-#     log:
-#         os.path.join(config["local_log"],"alfa_aligment_statistics_unique_mappers.log")
-#     threads:    20
-#     conda:
-#         "envs/alfa.yaml"
-#     shell:
-#         "(mkdir -p {params.output_dir}; \
-#         alfa \
-#         -g {params.genome_index_basename} \
-#         --bam {params.bam_and_sample_name} \
-#         -d 2 \
-#         --keep_ambiguous \
-#         --processors {threads} \
-#         --strandness {params.strandness} \
-#         --pdf {params.output_prefix} \
-#         --temp_dir {params.output_dir} \
-#         -o {params.output_dir}; \
-#         ) &> {log}"
+rule alfa_aligment_statistics_unique_mappers:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics_unique_mappers",
+        output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers")),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics_unique_mappers.log")
+    threads:    20
+    conda:
+        "envs/alfa.yaml"
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
 
 ################################################################################
 ### count sequences unique mappers
