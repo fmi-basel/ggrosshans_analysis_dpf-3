@@ -12,6 +12,8 @@
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+  spike_ins_fasta: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa"
+  spike_ins_bowtie_index: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa.Rbowtie"
 
   # rule params
   adapter: "AACTGTAGGCACCATCAAT"

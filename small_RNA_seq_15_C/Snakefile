@@ -7,6 +7,8 @@ configfile: "config.yaml"
 import os
 import sys
 import pandas as pd
+from functools import reduce
+
 
 ################################################################################
 ### Custom functions
@@ -49,10 +51,9 @@ rule finish:
         pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
         pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
         # pdf_alfa_aligment_statistics_unique_mappers_filter_miRNAs = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf"), sample=get_samples())
-        # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
-
-
-
+        # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc")),
+        # counts_spike_ins = expand(os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv"), sample=get_samples()),
+        counts = os.path.join(config["output_dir"], "spike_ins", "counts.tsv")
 
 ################################################################################
 ### Extract gtf with miRNAs
@@ -719,3 +720,125 @@ rule plot_small_RNAs_unique_mappers:
 #         "envs/multiqc.yaml"
 #     shell:
 #         "(multiqc --outdir {output.multiqc_dir} results logs) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### spike ins
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### bowtie align
+################################################################################
+
+rule bowtie_align_spike_ins:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"),
+        bowtie_index = config["spike_ins_bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.bam")
+    params:
+        index_prefix = config["spike_ins_bowtie_index"] + "/bowtieIndex"
+    threads:   8
+    conda:
+        "envs/bowtie.yaml"
+    log:
+        os.path.join(config["local_log"],"bowtie_align_spike_ins_{sample}.log")
+    shell:
+        "(bowtie \
+        -v 0 \
+        --all \
+        --best \
+        --strata \
+        -m 1 \
+        --sam \
+        --fr \
+        --norc \
+        --threads {threads} \
+        {params.index_prefix} \
+        <(zcat {input.reads}) \
+        | samtools view -bS - > \
+        {output.bam}) &> {log}"
+        
+################################################################################
+### samtools sort and index spike_ins
+################################################################################
+
+rule samtools_sort_and_index_spike_ins:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.bam")
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam.bai")
+    threads:   8
+    conda:
+        "envs/samtools.yaml"
+    log:
+        os.path.join(config["local_log"],"samtools_sort_and_index_spike_ins_{sample}.log")
+    shell:
+        "(samtools sort \
+        -m 10G \
+        --threads {threads} \
+        --output-fmt BAM {input.bam} \
+        -o {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai};) &> {log}"
+
+################################################################################
+### Count spike ins
+################################################################################
+
+rule count_spike_ins:
+    input:
+        fasta = config["spike_ins_fasta"],
+        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam.bai"),
+        script = os.path.join(config["scripts"], "count_spike_ins.py")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv")
+    params:
+        out = os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts")
+    threads:   1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    log:
+        os.path.join(config["local_log"],"count_spike_ins_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --fasta {input.fasta} \
+        --bam {input.bam} \
+        --out {params.out} \
+        --verbose) &> {log}"
+        
+################################################################################
+### Collect count spike ins
+################################################################################
+
+rule collect_count_spike_ins:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv"), sample=get_samples())
+    output:
+        counts = os.path.join(config["output_dir"], "spike_ins", "counts.tsv")
+    threads:    1
+    log:
+        os.path.join(config["local_log"],"collect_count_spike_ins.log")
+    run:
+        dfs = []
+        for i in input.counts:
+            sample_name = i.strip().split("/")[1]
+            df = pd.read_csv(i, header=0, sep="\t")
+            df.set_index("Name", inplace=True)
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+            
+        df_final = reduce(lambda left,right: pd.merge(left,right,on='Name'), dfs)
+
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+rule collect_count_unique_mappers:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample=get_samples())
+    output:
+        counts = os.path.join(config["output_dir"], "all_counts", "counts.tsv") 
