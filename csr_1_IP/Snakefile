@@ -549,7 +549,7 @@ rule edgeR_prepare_pairs_unique_mappers:
     input:
         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+        script = os.path.join(config["scripts"], "edger_prepare_files_update.py")
     output:
         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "counts.table"),
         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "conditions")

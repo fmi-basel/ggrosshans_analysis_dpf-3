@@ -55,6 +55,10 @@ png(paste(opt$outfolder, "MDS.png", sep='/'))
 plotMDS(y)
 dev.off()
 
+# Filter lowly expressed genes
+keep <- filterByExpr(y)
+y <- y[keep, , keep.lib.sizes=FALSE]
+
 y <- estimateDisp(y, design, robust=TRUE)
 
 
