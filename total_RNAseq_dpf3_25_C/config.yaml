@@ -9,11 +9,18 @@
   gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+  # transposons based on ucsc
+  repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_transposons.tsv"
+  
+  # transposons based on Wormbase
   gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
-  transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
+  #transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
   sjdbOverhang: 50
   # alfa_genome_index_stranded: "../22G_RNAs/results/annotation/alfa_genome_index.stranded.ALFA_index"
   # alfa_genome_index_basename: "../22G_RNAs/results/annotation/alfa_genome_index"
+  
+  
+
 
   experiment_samples: {
     WT_33: ["wild_type_33_Hrs_REPLICATE_A", "wild_type_33_Hrs_REPLICATE_B"],
