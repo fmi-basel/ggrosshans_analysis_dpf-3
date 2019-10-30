@@ -52,7 +52,8 @@ rule finish:
         DE_salmon_quant_reads_transposons_repClass = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
                                                                          zip,
                                                                          experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                         experiment2 = [i[1]  for i in list(config["combinations"])])
+                                                                         experiment2 = [i[1]  for i in list(config["combinations"])]),
+        htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv"), sample=get_samples())
         
 ################################################################################
 ################################################################################
@@ -767,17 +768,17 @@ rule edgeR_differential_salmon_quant_update_DE_table:
         
         
         
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ### Quantify and DE transposons
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+### Quantify and DE transposons
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
 
 ###############################################################################
 ## Salmon quantify transposons based on reads
@@ -1143,3 +1144,125 @@ rule edgeR_differential_salmon_quant_reads_transposons_repFamily:
         --conditions {input.conditions} \
         --counts {input.counts} \
         --outfolder {params.output_dir}) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+### Quantify and DE transposons with multimappers
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### bowtie align
+################################################################################
+
+rule bowtie_align:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz"),
+        bowtie_index = config["bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
+    params:
+        index_prefix = config["bowtie_index"] + "/bowtie"
+    threads:   8
+    conda:
+        "envs/bowtie.yaml"
+    log:
+        os.path.join(config["local_log"],"bowtie_align_{sample}.log")
+    shell:
+        "(bowtie \
+        -v 1 \
+        --all \
+        --best \
+        --strata \
+        --sam \
+        --fr \
+        --threads {threads} \
+        {params.index_prefix} \
+        <(zcat {input.reads}) \
+        | samtools view -bS - \
+        | samtools sort -@ {threads} - > \
+        {output.bam}) &> {log}"
+
+################################################################################
+### Index alignment file
+################################################################################
+
+rule samtools_index_bowtie_align:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
+    output:
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai")
+    log:
+        os.path.join(config["local_log"],"samtools_index_bowtie_align_{sample}.log")
+    threads:    1
+    conda:
+        "envs/samtools.yaml"
+    shell:
+        "(samtools index {input.bam} > {output.bai}) &> {log}"
+
+################################################################################
+### Filter small RNAs that we are not interested in
+### (rRNA rRNA_pseudogene tRNA tRNA_pseudogene)
+################################################################################
+
+rule filter_RNAs_bowtie_align:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_RNAs.py"),
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
+    params:
+        filter_RNAs = config["filter_RNAs"],
+        filter_chromosomes = config["filter_chromosomes"]
+    log:
+        os.path.join(config["local_log"],"filter_RNAs_bowtie_align_{sample}.log")
+    threads:    2
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --bam {input.bam} \
+        --filter_RNAs {params.filter_RNAs} \
+        --filter_chromosomes {params.filter_chromosomes} \
+        --bam_out {output.bam} \
+        --verbose; \
+        samtools index -@ {threads} {output.bam} {output.bai};)"
+
+################################################################################
+### HTSeq count genomic alignment
+################################################################################
+
+rule count_genomic_alignment_htseq_bowtie_align:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv")
+    log:
+        os.path.join(config["local_log"],"count_genomic_alignment_htseq_bowtie_align_{sample}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded yes \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        --nonunique none \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
