@@ -46,6 +46,10 @@ rule finish:
                                  zip,
                                  experiment1 = [i[0]  for i in list(config["combinations"])],
                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
+        plot_small_RNAs_no_filter_expression = expand(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
+                                                      zip,
+                                                      experiment1 = [i[0]  for i in list(config["combinations_other"])],
+                                                      experiment2 = [i[1]  for i in list(config["combinations_other"])]),
         # # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),  
         pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
         pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
@@ -720,6 +724,97 @@ rule plot_small_RNAs_unique_mappers:
 #         "envs/multiqc.yaml"
 #     shell:
 #         "(multiqc --outdir {output.multiqc_dir} results logs) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### Repeat analysis of DE without filtering expression and use a different
+### combinations of background samples
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### Input preparation for edgeR
+################################################################################
+
+rule edgeR_prepare_pairs_no_filter:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_no_filter__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+################################################################################
+### Differential expression between conditions
+################################################################################
+
+rule edgeR_differential_no_filter:
+    input:
+        counts = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple_no_filter.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "DE_edgeR"),
+        cluster_log = os.path.join(config["cluster_log"], "no_filter", "edgeR_differential__{experiment1}__{experiment2}.log")
+    conda:
+        "envs/DE.yaml"
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_no_filter__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+################################################################################
+### plot_small_RNAs
+################################################################################
+
+rule plot_small_RNAs_no_filter:
+    input:
+        table_all = os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        mirnas = os.path.join(config["output_dir"], "annotation", "mirnas.fa"),
+        script = os.path.join(config["scripts"], "plot_small_RNAs.py")
+    output:
+        out = directory(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"))
+    params:
+        comparison_name = "DE__{experiment1}__{experiment2}"
+    log:
+        os.path.join(config["local_log"], "plot_small_RNAs_no_filter__{experiment1}__{experiment2}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(python {input.script} \
+        --DE_edgeR_table {input.table_all} \
+        --comparison_name {params.comparison_name} \
+        --mirnas {input.mirnas} \
+        --out {output.out} \
+        --verbose;) &> {log}"
 
 ################################################################################
 ################################################################################
