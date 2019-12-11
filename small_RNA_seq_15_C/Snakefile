@@ -50,7 +50,7 @@ rule finish:
                                                       zip,
                                                       experiment1 = [i[0]  for i in list(config["combinations_other"])],
                                                       experiment2 = [i[1]  for i in list(config["combinations_other"])]),
-        # # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),  
+         # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),  
         pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
         pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
         pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),

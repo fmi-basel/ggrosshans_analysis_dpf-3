@@ -32,6 +32,8 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
+        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv"),
+        salmon_TPM_genes_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv"),
         outdir_fq1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
         outdir_fq2 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_2"), sample=get_samples()),
         mate_1_reads = expand(os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"), sample=get_samples()),
@@ -43,22 +45,22 @@ rule finish:
                                                                   zip,
                                                                   experiment1 = [i[0]  for i in list(config["combinations"])],
                                                                   experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # DE_salmon_quant_reads_transposons = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
-        #                                                         zip,
-        #                                                         experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                                                         experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # DE_salmon_quant_reads_transposons_repName = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
-        #                                                                 zip,
-        #                                                                 experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                                                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # DE_salmon_quant_reads_transposons_repFamily = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
-        #                                                                   zip,
-        #                                                                   experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                                                                   experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # DE_salmon_quant_reads_transposons_repClass = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
-        #                                                                  zip,
-        #                                                                  experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                                                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_salmon_quant_reads_transposons = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
+                                                                zip,
+                                                                experiment1 = [i[0]  for i in list(config["combinations"])],
+                                                                experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_salmon_quant_reads_transposons_repName = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
+                                                                        zip,
+                                                                        experiment1 = [i[0]  for i in list(config["combinations"])],
+                                                                        experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_salmon_quant_reads_transposons_repFamily = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
+                                                                          zip,
+                                                                          experiment1 = [i[0]  for i in list(config["combinations"])],
+                                                                          experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_salmon_quant_reads_transposons_repClass = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
+                                                                         zip,
+                                                                         experiment1 = [i[0]  for i in list(config["combinations"])],
+                                                                         experiment2 = [i[1]  for i in list(config["combinations"])]),
         # htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv"), sample=get_samples())
         
 ################################################################################
@@ -659,6 +661,71 @@ rule filter_salmon_quant_reads:
         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
 
 ################################################################################
+### Collect all salmon reads
+################################################################################
+
+rule collect_salmon_reads:
+    input:
+        salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample=get_samples())
+    output:
+        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv")
+    params:
+        sample_name = expand("{sample}", sample=get_samples())
+    log:
+        os.path.join(config["local_log"], "collect_salmon_reads.log")
+    run:
+        df_merge = pd.DataFrame()
+        for i in range(len(input.salmon_filtered)): 
+            df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
+            df.columns = ["Name", params.sample_name[i]]
+            if df_merge.empty:
+                df_merge = df.copy()
+            else:
+                df_merge = pd.merge(df_merge, df, on="Name")
+        df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
+
+################################################################################
+### Filter salmon (TPM)
+################################################################################
+
+rule filter_salmon_TPM:
+    input:
+        salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
+    output:
+        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv")
+    log:
+        os.path.join(config["local_log"], "filter_salmon_TPM_{sample}.log")
+    run:
+        df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
+        df = df[["Name", "TPM"]].copy()
+        df.set_index("Name", inplace=True)
+        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+
+################################################################################
+### Collect all salmon reads TPM
+################################################################################
+
+rule collect_salmon_reads_TPM:
+    input:
+        salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv"), sample=get_samples())
+    output:
+        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv")
+    params:
+        sample_name = expand("{sample}", sample=get_samples())
+    log:
+        os.path.join(config["local_log"], "collect_salmon_reads_TPM.log")
+    run:
+        df_merge = pd.DataFrame()
+        for i in range(len(input.salmon_filtered)): 
+            df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
+            df.columns = ["Name", params.sample_name[i]]
+            if df_merge.empty:
+                df_merge = df.copy()
+            else:
+                df_merge = pd.merge(df_merge, df, on="Name")
+        df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
+
+################################################################################
 ### Input preparation for edgeR (salmon quant reads)
 ################################################################################
 
@@ -814,7 +881,8 @@ rule edgeR_differential_salmon_quant_update_DE_table:
 
 rule salmon_quant_reads_transposons:
     input:
-        reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz"),
+        mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
+        mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"),
         index = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.salmon.idx")
         # geneMap = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
     output:
@@ -836,7 +904,8 @@ rule salmon_quant_reads_transposons:
         --threads {threads} \
         --writeUnmappedNames \
         --index {input.index} \
-        --unmatedReads {input.reads} \
+        -1 {input.mate_1_reads} \
+        -2 {input.mate_2_reads} \
         -o {params.salmon_dir}) &> {log}"
         
         # --geneMap {input.geneMap} \
