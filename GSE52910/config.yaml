@@ -22,18 +22,4 @@
   sjdbOverhang: 50
   # alfa_genome_index_stranded: "../22G_RNAs/results/annotation/alfa_genome_index.stranded.ALFA_index"
   # alfa_genome_index_basename: "../22G_RNAs/results/annotation/alfa_genome_index"
-  
-  
-
-
-  experiment_samples: {
-    WT_33: ["wild_type_33_Hrs_REPLICATE_A", "wild_type_33_Hrs_REPLICATE_B"],
-    dpf_3_delta_33: ["dpf_3_delta_33_Hrs_REPLICATE_A", "dpf_3_delta_33_Hrs_REPLICATE_B"],
-    dpf_3S784A_33: ["dpf_3S784A_33_Hrs_REPLICATE_A", "dpf_3S784A_33_Hrs_REPLICATE_B"],
-    drh_3_mutant_33: ["drh_3_mutant_33_Hrs_REPLICATE_A", "drh_3_mutant_33_Hrs_REPLICATE_B"],
-  }
-
-  combinations: [["WT_33", "dpf_3_delta_33"],
-                 ["WT_33", "dpf_3S784A_33"],
-                 ["WT_33", "drh_3_mutant_33"]]
 ...
