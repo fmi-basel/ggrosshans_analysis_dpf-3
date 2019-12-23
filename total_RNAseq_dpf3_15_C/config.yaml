@@ -1,0 +1,49 @@
+---
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+  # transposons based on ucsc
+  repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_transposons.tsv"
+  
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  # transposons based on Wormbase
+  gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
+  #transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
+  sjdbOverhang: 50
+  # alfa_genome_index_stranded: "../22G_RNAs/results/annotation/alfa_genome_index.stranded.ALFA_index"
+  # alfa_genome_index_basename: "../22G_RNAs/results/annotation/alfa_genome_index"
+  
+  adapter_fwd: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
+  adapter_rev: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+
+  # samples
+  experiment_samples: {
+    WT_all: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, wild_type_G, wild_type_H, wild_type_I],
+    WT: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F], #, wild_type_G, wild_type_H, wild_type_I],
+    WT_last: [wild_type_G, wild_type_H, wild_type_I],
+    Dpf_3_null: [Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C],
+    mut_2: [mut_2_A, mut_2_B, mut_2_C],
+    mut_7: [mut_7_A, mut_7_B, mut_7_C]
+  }
+
+  # comparisons
+  combinations: [[WT, Dpf_3_null],
+                 [WT, mut_2],
+                 [WT, mut_7],
+                 [WT_all, Dpf_3_null],
+                 [WT_all, mut_2],
+                 [WT_all, mut_7],
+                 [WT_last, Dpf_3_null],
+                 [WT_last, mut_2],
+                 [WT_last, mut_7]]
+...
