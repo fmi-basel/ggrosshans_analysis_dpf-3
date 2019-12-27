@@ -50,4 +50,5 @@
                  [WT_A_C_E, mut_2],
                  [WT_B_D_F, Dpf_3_null],
                  [WT_B_D_F, Dpf_3_S784A],
-                 [WT_B_D_F, mut_2]]
+                 [WT_B_D_F, mut_2],
+                 [WT_A_B_C, WT_D_E_F]]
