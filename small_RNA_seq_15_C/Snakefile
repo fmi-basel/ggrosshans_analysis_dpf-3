@@ -34,6 +34,7 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv"),
         plot_small_RNAs = expand(os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
                                  zip,
                                  experiment1 = [i[0]  for i in list(config["combinations"])],
@@ -363,6 +364,31 @@ rule count_sequences:
         --bam {input.bam} \
         --out {params.outdir} \
         --verbose) &> {log}"
+
+################################################################################
+### collect count sequences
+################################################################################
+
+rule collect_count_sequences:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=get_samples())
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_count_sequences.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=0, sep="\t")
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
 
 ################################################################################
 ### Input preparation for edgeR
@@ -733,6 +759,5 @@ rule collect_count_spike_ins:
             df.columns = df.columns + "_" + sample_name
             df.reset_index(inplace=True)
             dfs.append(df)
-            
         df_final = reduce(lambda left,right: pd.merge(left,right,on='Name'), dfs)
         df_final.to_csv(output.counts, header=True, sep="\t", index=False)
