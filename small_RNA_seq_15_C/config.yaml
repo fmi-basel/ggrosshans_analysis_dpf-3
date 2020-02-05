@@ -20,6 +20,8 @@
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
+  samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
+
   # samples
   experiment_samples: {
     WT: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F],

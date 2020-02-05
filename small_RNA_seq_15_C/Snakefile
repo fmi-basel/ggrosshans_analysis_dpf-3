@@ -18,8 +18,6 @@ def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
     return list(design_table["sample"])
 
-    # return ["dpf_3_delta_38_Hrs_Rev6_REPLICATE_B"]
-
 def get_fq_1(wildcards):
     design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
     return str(design_table.loc[wildcards.sample]["fq1"])
@@ -34,15 +32,19 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
-        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv"),
-        plot_small_RNAs = expand(os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
-                                 zip,
-                                 experiment1 = [i[0]  for i in list(config["combinations"])],
-                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
-        plot_small_RNAs_no_filter_expression = expand(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
-                                                      zip,
-                                                      experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                      experiment2 = [i[1]  for i in list(config["combinations"])])
+        # counts_to_consider = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv"),
+        # plot_small_RNAs = expand(os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
+        #                          zip,
+        #                          experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                          experiment2 = [i[1]  for i in list(config["combinations"])]),
+        # plot_small_RNAs_no_filter_expression = expand(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
+        #                                               zip,
+        #                                               experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                               experiment2 = [i[1]  for i in list(config["combinations"])]),
+        table_all = expand(os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+                           zip,
+                           experiment1 = [i[0]  for i in list(config["combinations"])],
+                           experiment2 = [i[1]  for i in list(config["combinations"])]),
 
 ################################################################################
 ### Extract gtf with miRNAs
@@ -391,6 +393,69 @@ rule collect_count_sequences:
         df_final.to_csv(output.counts, header=True, sep="\t", index=False)
 
 ################################################################################
+### split count sequences
+################################################################################
+
+rule split_count_sequences:
+    input:
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "counts_split", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "split_count_sequences_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")
+        sample_name = output.counts.strip().split("/")[1]
+        df = df[["Name", f"counts_{sample_name}"]]
+        df.columns = [["Name", "counts"]]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+
+################################################################################
+### collect count sequences consider
+################################################################################
+
+rule collect_count_sequences_to_consider:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=config["samples_to_consider"])
+    output:
+        counts = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_count_sequences_to_consider.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=0, sep="\t")
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+### split count sequences consider
+################################################################################
+
+rule split_count_sequences_to_consider:
+    input:
+        counts = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "split_count_sequences_to_consider_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")
+        sample_name = output.counts.strip().split("/")[1]
+        df = df[["Name", f"counts_{sample_name}"]]
+        df.columns = [["Name", "counts"]]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+
+################################################################################
 ### Input preparation for edgeR
 ################################################################################
 
@@ -647,6 +712,97 @@ rule plot_small_RNAs_no_filter:
         --mirnas {input.mirnas} \
         --out {output.out} \
         --verbose;) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### DE FOR SMALL RNAs only (22G, e.t.c. ...)
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### Input preparation for edgeR
+################################################################################
+
+rule edgeR_prepare_pairs_small_RNAs:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+################################################################################
+### Differential expression between conditions
+################################################################################
+
+rule edgeR_differential_small_RNAs:
+    input:
+        counts = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple_small_RNAs.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR"),
+        cluster_log = os.path.join(config["cluster_log"], "small_RNAs", "edgeR_differential__{experiment1}__{experiment2}.log")
+    conda:
+        "envs/DE.yaml"
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+################################################################################
+### plot_small_RNAs
+################################################################################
+
+rule plot_small_RNAs_small_RNAs:
+    input:
+        table_all = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        mirnas = os.path.join(config["output_dir"], "annotation", "mirnas.fa"),
+        script = os.path.join(config["scripts"], "plot_small_RNAs.py")
+    output:
+        out = directory(os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"))
+    params:
+        comparison_name = "DE__{experiment1}__{experiment2}"
+    log:
+        os.path.join(config["local_log"], "plot_small_RNAs_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(python {input.script} \
+        --DE_edgeR_table {input.table_all} \
+        --comparison_name {params.comparison_name} \
+        --mirnas {input.mirnas} \
+        --out {output.out} \
+        --verbose;) &> {log}"
+
 
 ################################################################################
 ################################################################################
