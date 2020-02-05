@@ -18,8 +18,6 @@ def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
     return list(design_table["sample"])
 
-    # return ["dpf_3_delta_38_Hrs_Rev6_REPLICATE_B"]
-
 def get_fq_1(wildcards):
     design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
     return str(design_table.loc[wildcards.sample]["fq1"])
@@ -34,30 +32,19 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
-        # bai = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"), sample=get_samples()),
-        fastqc = expand(os.path.join(config["output_dir"], "{sample}", "fastqc"), sample=get_samples()),
-        # reads = expand(os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"), sample=get_samples())
-        #fastqc_filtered = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_filtered"), sample=get_samples()),
-        plot_small_RNAs = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
-                                 zip,
-                                 experiment1 = [i[0]  for i in list(config["combinations"])],
-                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
-        plot_small_RNAs_unique_mappers = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs_unique_mappers"),
-                                 zip,
-                                 experiment1 = [i[0]  for i in list(config["combinations"])],
-                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
-        plot_small_RNAs_no_filter_expression = expand(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
-                                                      zip,
-                                                      experiment1 = [i[0]  for i in list(config["combinations_other"])],
-                                                      experiment2 = [i[1]  for i in list(config["combinations_other"])]),
-         # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),  
-        pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
-        pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
-        pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_unique_mappers_filter_miRNAs = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf"), sample=get_samples())
-        # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc")),
-        # counts_spike_ins = expand(os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv"), sample=get_samples()),
-        counts = os.path.join(config["output_dir"], "spike_ins", "counts.tsv")
+        # counts_to_consider = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv"),
+        # plot_small_RNAs = expand(os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
+        #                          zip,
+        #                          experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                          experiment2 = [i[1]  for i in list(config["combinations"])]),
+        # plot_small_RNAs_no_filter_expression = expand(os.path.join(config["output_dir"], "no_filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
+        #                                               zip,
+        #                                               experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                               experiment2 = [i[1]  for i in list(config["combinations"])]),
+        table_all = expand(os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+                           zip,
+                           experiment1 = [i[0]  for i in list(config["combinations"])],
+                           experiment2 = [i[1]  for i in list(config["combinations"])]),
 
 ################################################################################
 ### Extract gtf with miRNAs
@@ -381,6 +368,94 @@ rule count_sequences:
         --verbose) &> {log}"
 
 ################################################################################
+### collect count sequences
+################################################################################
+
+rule collect_count_sequences:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=get_samples())
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_count_sequences.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=0, sep="\t")
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+### split count sequences
+################################################################################
+
+rule split_count_sequences:
+    input:
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "counts_split", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "split_count_sequences_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")
+        sample_name = output.counts.strip().split("/")[1]
+        df = df[["Name", f"counts_{sample_name}"]]
+        df.columns = [["Name", "counts"]]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+
+################################################################################
+### collect count sequences consider
+################################################################################
+
+rule collect_count_sequences_to_consider:
+    input:
+        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=config["samples_to_consider"])
+    output:
+        counts = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_count_sequences_to_consider.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=0, sep="\t")
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+### split count sequences consider
+################################################################################
+
+rule split_count_sequences_to_consider:
+    input:
+        counts = os.path.join(config["output_dir"], "counts_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "split_count_sequences_to_consider_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")
+        sample_name = output.counts.strip().split("/")[1]
+        df = df[["Name", f"counts_{sample_name}"]]
+        df.columns = [["Name", "counts"]]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+
+################################################################################
 ### Input preparation for edgeR
 ################################################################################
 
@@ -390,10 +465,10 @@ rule edgeR_prepare_pairs:
         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
         script = os.path.join(config["scripts"], "edger_prepare_files.py")
     output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+        counts = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
     params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs"),
+        output_dir = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "prepare_pairs"),
         condition1_name = "{experiment1}",
         condition2_name = "{experiment2}"
     log:
@@ -415,14 +490,14 @@ rule edgeR_prepare_pairs:
 
 rule edgeR_differential:
     input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        counts = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
         script = os.path.join(config["scripts"], "DE_simple.R")
     output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
     params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR"),
+        output_dir = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "DE_edgeR"),
         cluster_log = os.path.join(config["cluster_log"], "edgeR_differential__{experiment1}__{experiment2}.log")
     conda:
         "envs/DE.yaml"
@@ -442,11 +517,11 @@ rule edgeR_differential:
 
 rule plot_small_RNAs:
     input:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
         mirnas = os.path.join(config["output_dir"], "annotation", "mirnas.fa"),
         script = os.path.join(config["scripts"], "plot_small_RNAs.py")
     output:
-        out = directory(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs"))
+        out = directory(os.path.join(config["output_dir"], "filter", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"))
     params:
         comparison_name = "DE__{experiment1}__{experiment2}"
     log:
@@ -548,184 +623,6 @@ rule count_sequences_unique_mappers:
         --verbose) &> {log}"
 
 ################################################################################
-### Input preparation for edgeR unique mappers
-################################################################################
-
-rule edgeR_prepare_pairs_unique_mappers:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_unique_mappers_{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-
-################################################################################
-### Differential expression between conditions unique mappers
-################################################################################
-
-rule edgeR_differential_unique_mappers:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs_unique_mappers", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR_unique_mappers", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR_unique_mappers", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR_unique_mappers"),
-        cluster_log = os.path.join(config["cluster_log"], "edgeR_differential__{experiment1}__{experiment2}.log")
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_unique_mappers_{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --outfolder {params.output_dir}) &> {log}"
-
-################################################################################
-### plot_small_RNAs unique mappers
-################################################################################
-
-rule plot_small_RNAs_unique_mappers:
-    input:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR_unique_mappers", "final_table.tsv"),
-        mirnas = os.path.join(config["output_dir"], "annotation", "mirnas.fa"),
-        script = os.path.join(config["scripts"], "plot_small_RNAs.py")
-    output:
-        out = directory(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs_unique_mappers"))
-    params:
-        comparison_name = "DE_unique_mappers__{experiment1}__{experiment2}"
-    log:
-        os.path.join(config["local_log"], "plot_small_RNAs_unique_mappers_{experiment1}__{experiment2}.log")
-    threads:    1
-    conda:
-        "envs/HTSeq_pandas_samtools_seaborn.yaml"
-    shell:
-        "(python {input.script} \
-        --DE_edgeR_table {input.table_all} \
-        --comparison_name {params.comparison_name} \
-        --mirnas {input.mirnas} \
-        --out {output.out} \
-        --verbose;) &> {log}"
-
-# ################################################################################
-# ### Filter miRNAs in order to see on the general statistics RNAs that we are not interested in
-# ### (miRNA)
-# ################################################################################
-
-# rule filter_miRNAs:
-#     input:
-#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
-#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
-#         gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.gtf"),
-#         script = os.path.join(config["scripts"], "filter_RNAs.py"),
-#     output:
-#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.filter_mirnas.bam"),
-#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.filter_mirnas.bam.bai")
-#     params:
-#         filter_RNAs = "\"miRNA\"",
-#         filter_chromosomes = "chrM"
-#     log:
-#         os.path.join(config["local_log"],"filter_miRNAs_{sample}.log")
-#     threads:    2
-#     conda:
-#         "envs/HTSeq_pandas_samtools_seaborn.yaml"
-#     shell:
-#         "(python {input.script} \
-#         --gtf {input.gtf} \
-#         --bam {input.bam} \
-#         --filter_RNAs {params.filter_RNAs} \
-#         --filter_chromosomes {params.filter_chromosomes} \
-#         --bam_out {output.bam} \
-#         --verbose; \
-#         samtools index -@ {threads} {output.bam} {output.bai};)"
-
-# ################################################################################
-# ### Determine alignment statistics unique mappers and filter miRNAs
-# ################################################################################
-
-# rule alfa_aligment_statistics_unique_mappers_filter_miRNAs:
-#     input:
-#         bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.filter_mirnas.bam"), sample1=get_samples()),
-#         bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.filter_mirnas.bam.bai"), sample1=get_samples()),
-#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
-#     output:
-#         pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf")
-#     params:
-#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
-#         output_prefix = "alfa_aligment_statistics_unique_mappers_filter_miRNAs",
-#         output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs")),
-#         bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.filter_mirnas.bam ")) +str("{sample1}"), sample1=get_samples()),
-#         strandness = "forward"
-#     log:
-#         os.path.join(config["local_log"], "alfa_aligment_statistics_unique_mappers_filter_miRNAs.log")
-#     threads:    20
-#     conda:
-#         "envs/alfa.yaml"
-#     shell:
-#         "(mkdir -p {params.output_dir}; \
-#         alfa \
-#         -g {params.genome_index_basename} \
-#         --bam {params.bam_and_sample_name} \
-#         -d 2 \
-#         --keep_ambiguous \
-#         --processors {threads} \
-#         --strandness {params.strandness} \
-#         --pdf {params.output_prefix} \
-#         --temp_dir {params.output_dir} \
-#         -o {params.output_dir}; \
-#         ) &> {log}"
-
-# ################################################################################
-# ### Multiqc
-# ################################################################################
-
-# rule multiqc:
-#     input:
-#         pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
-#         pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
-#         pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
-#         pdf_alfa_aligment_statistics_unique_mappers_filter_miRNAs = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf"), sample=get_samples()),
-#         fastqc = expand(os.path.join(config["output_dir"], "{sample}", "fastqc"), sample=get_samples()),
-#         plot_small_RNAs = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
-#                                  zip,
-#                                  experiment1 = [i[0]  for i in list(config["combinations"])],
-#                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
-#         plot_small_RNAs_unique_mappers = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs_unique_mappers"),
-#                                  zip,
-#                                  experiment1 = [i[0]  for i in list(config["combinations"])],
-#                                  experiment2 = [i[1]  for i in list(config["combinations"])])
-#     output:
-#         multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
-#     log:
-#         os.path.join(config["local_log"], "multiqc_fastqc.log")
-#     conda:
-#         "envs/multiqc.yaml"
-#     shell:
-#         "(multiqc --outdir {output.multiqc_dir} results logs) &> {log}"
-
-################################################################################
 ################################################################################
 ################################################################################
 ### Repeat analysis of DE without filtering expression and use a different
@@ -815,6 +712,97 @@ rule plot_small_RNAs_no_filter:
         --mirnas {input.mirnas} \
         --out {output.out} \
         --verbose;) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### DE FOR SMALL RNAs only (22G, e.t.c. ...)
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### Input preparation for edgeR
+################################################################################
+
+rule edgeR_prepare_pairs_small_RNAs:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "counts_split_to_consider", "alignment.sorted.filtered", "counts.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+################################################################################
+### Differential expression between conditions
+################################################################################
+
+rule edgeR_differential_small_RNAs:
+    input:
+        counts = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple_small_RNAs.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR"),
+        cluster_log = os.path.join(config["cluster_log"], "small_RNAs", "edgeR_differential__{experiment1}__{experiment2}.log")
+    conda:
+        "envs/DE.yaml"
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+################################################################################
+### plot_small_RNAs
+################################################################################
+
+rule plot_small_RNAs_small_RNAs:
+    input:
+        table_all = os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        mirnas = os.path.join(config["output_dir"], "annotation", "mirnas.fa"),
+        script = os.path.join(config["scripts"], "plot_small_RNAs.py")
+    output:
+        out = directory(os.path.join(config["output_dir"], "small_RNAs", "DE__{experiment1}__{experiment2}", "plot_small_RNAs"))
+    params:
+        comparison_name = "DE__{experiment1}__{experiment2}"
+    log:
+        os.path.join(config["local_log"], "plot_small_RNAs_small_RNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(python {input.script} \
+        --DE_edgeR_table {input.table_all} \
+        --comparison_name {params.comparison_name} \
+        --mirnas {input.mirnas} \
+        --out {output.out} \
+        --verbose;) &> {log}"
+
 
 ################################################################################
 ################################################################################
@@ -927,13 +915,5 @@ rule collect_count_spike_ins:
             df.columns = df.columns + "_" + sample_name
             df.reset_index(inplace=True)
             dfs.append(df)
-            
         df_final = reduce(lambda left,right: pd.merge(left,right,on='Name'), dfs)
-
         df_final.to_csv(output.counts, header=True, sep="\t", index=False)
-
-rule collect_count_unique_mappers:
-    input:
-        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered.unique_mappers", "counts.tsv"), sample=get_samples())
-    output:
-        counts = os.path.join(config["output_dir"], "all_counts", "counts.tsv") 

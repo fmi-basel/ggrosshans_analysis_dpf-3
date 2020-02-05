@@ -20,43 +20,37 @@
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
+  samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
+
   # samples
   experiment_samples: {
-    WT: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, wild_type_G, wild_type_H, wild_type_I],
-    WT_dpf3: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F],
+    WT: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F],
     WT_other: [wild_type_G, wild_type_H, wild_type_I],
     Dpf_3_null: [Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C],
     Dpf_3_S784A: [Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C],
     alg_4_alg_3: [alg_4_alg_3_A, alg_4_alg_3_B, alg_4_alg_3_C],
     mut_2: [mut_2_A, mut_2_B, mut_2_C],
     mut_7: [mut_7_A, mut_7_B, mut_7_C],
-    WT_dpf3_first: [wild_type_A, wild_type_B, wild_type_C],
-    WT_dpf3_second: [wild_type_D, wild_type_E, wild_type_F],
     WT_A_B_C: [wild_type_A, wild_type_B, wild_type_C],
     WT_D_E_F: [wild_type_D, wild_type_E, wild_type_F],
+    WT_A_C_E: [wild_type_A, wild_type_C, wild_type_E],
+    WT_B_D_F: [wild_type_B, wild_type_D, wild_type_F],
   }
 
   # comparisons
-  combinations: [[WT_dpf3, Dpf_3_null], 
-                 [WT_dpf3, Dpf_3_S784A],
-                 [WT_other, alg_4_alg_3],
-                 [WT_other, mut_2],
-                 [WT_other, mut_7],
-                 [WT_dpf3_first, Dpf_3_null],
-                 [WT_dpf3_second, Dpf_3_S784A],
-                 [WT_dpf3, mut_2],
-                 [WT_dpf3, mut_7],
-                 [WT, Dpf_3_null],
+  combinations: [[WT, Dpf_3_null],
                  [WT, Dpf_3_S784A],
-                 [WT, alg_4_alg_3],
                  [WT, mut_2],
-                 [WT, mut_7]]
-
-  combinations_other: [[WT_A_B_C, Dpf_3_null], 
-                       [WT_D_E_F, Dpf_3_S784A],
-                       [WT_A_B_C, Dpf_3_S784A],
-                       [WT_D_E_F, Dpf_3_null],
-                       [WT_A_B_C, mut_2],
-                       [WT_D_E_F, mut_7],
-                       [WT_D_E_F, mut_2],
-                       [WT_A_B_C, mut_7]]
+                 [WT_A_B_C, Dpf_3_null],
+                 [WT_A_B_C, Dpf_3_S784A],
+                 [WT_A_B_C, mut_2],
+                 [WT_D_E_F, Dpf_3_null],
+                 [WT_D_E_F, Dpf_3_S784A],
+                 [WT_D_E_F, mut_2],
+                 [WT_A_C_E, Dpf_3_null],
+                 [WT_A_C_E, Dpf_3_S784A],
+                 [WT_A_C_E, mut_2],
+                 [WT_B_D_F, Dpf_3_null],
+                 [WT_B_D_F, Dpf_3_S784A],
+                 [WT_B_D_F, mut_2],
+                 [WT_A_B_C, WT_D_E_F]]
