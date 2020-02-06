@@ -45,6 +45,7 @@ rule finish:
                            zip,
                            experiment1 = [i[0]  for i in list(config["combinations"])],
                            experiment2 = [i[1]  for i in list(config["combinations"])]),
+        bai = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam.bai"), sample=get_samples())
 
 ################################################################################
 ### Extract gtf with miRNAs
@@ -917,3 +918,36 @@ rule collect_count_spike_ins:
             dfs.append(df)
         df_final = reduce(lambda left,right: pd.merge(left,right,on='Name'), dfs)
         df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+### Extract 22G RNAs from alignment
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+rule extract_small_RNAs:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+        script = os.path.join(config["scripts"], "filter_22G_RNAs.py")
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam.bai")
+    threads:   1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    log:
+        os.path.join(config["local_log"],"extract_small_RNAs_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --bam {input.bam} \
+        --bam_out {output.bam} \
+        --verbose; \
+        samtools index {output.bam} > {output.bai}) &> {log}"
+    
