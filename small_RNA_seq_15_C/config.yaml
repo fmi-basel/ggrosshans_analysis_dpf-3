@@ -8,7 +8,7 @@
   scripts: "../scripts"
 
   # annotation
-  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"

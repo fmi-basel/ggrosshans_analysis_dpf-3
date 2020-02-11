@@ -45,7 +45,15 @@ rule finish:
                            zip,
                            experiment1 = [i[0]  for i in list(config["combinations"])],
                            experiment2 = [i[1]  for i in list(config["combinations"])]),
-        bai = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam.bai"), sample=get_samples())
+        htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_multi_mappers.forDE.tsv"), sample=get_samples()),
+        counts = expand(os.path.join(config["output_dir"], 
+                                     "gene_comparison", "DE__{experiment1}__{experiment2}",
+                                     "DE_edgeR",
+                                     "count_genomic_alignment_htseq_multi_mappers_forDE",
+                                     "final_table.tsv"),
+                        zip,
+                        experiment1 = [i[0]  for i in list(config["combinations"])],
+                        experiment2 = [i[1]  for i in list(config["combinations"])])
 
 ################################################################################
 ### Extract gtf with miRNAs
@@ -804,121 +812,6 @@ rule plot_small_RNAs_small_RNAs:
         --out {output.out} \
         --verbose;) &> {log}"
 
-
-################################################################################
-################################################################################
-################################################################################
-### spike ins
-################################################################################
-################################################################################
-################################################################################
-
-################################################################################
-### bowtie align
-################################################################################
-
-rule bowtie_align_spike_ins:
-    input:
-        reads = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"),
-        bowtie_index = config["spike_ins_bowtie_index"]
-    output:
-        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.bam")
-    params:
-        index_prefix = config["spike_ins_bowtie_index"] + "/bowtieIndex"
-    threads:   8
-    conda:
-        "envs/bowtie.yaml"
-    log:
-        os.path.join(config["local_log"],"bowtie_align_spike_ins_{sample}.log")
-    shell:
-        "(bowtie \
-        -v 0 \
-        --all \
-        --best \
-        --strata \
-        -m 1 \
-        --sam \
-        --fr \
-        --norc \
-        --threads {threads} \
-        {params.index_prefix} \
-        <(zcat {input.reads}) \
-        | samtools view -bS - > \
-        {output.bam}) &> {log}"
-        
-################################################################################
-### samtools sort and index spike_ins
-################################################################################
-
-rule samtools_sort_and_index_spike_ins:
-    input:
-        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.bam")
-    output:
-        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam.bai")
-    threads:   8
-    conda:
-        "envs/samtools.yaml"
-    log:
-        os.path.join(config["local_log"],"samtools_sort_and_index_spike_ins_{sample}.log")
-    shell:
-        "(samtools sort \
-        -m 10G \
-        --threads {threads} \
-        --output-fmt BAM {input.bam} \
-        -o {output.bam}; \
-        samtools index -@ {threads} {output.bam} {output.bai};) &> {log}"
-
-################################################################################
-### Count spike ins
-################################################################################
-
-rule count_spike_ins:
-    input:
-        fasta = config["spike_ins_fasta"],
-        bam = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "spike_ins", "alignment.sorted.bam.bai"),
-        script = os.path.join(config["scripts"], "count_spike_ins.py")
-    output:
-        counts = os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv")
-    params:
-        out = os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts")
-    threads:   1
-    conda:
-        "envs/HTSeq_pandas_samtools_seaborn.yaml"
-    log:
-        os.path.join(config["local_log"],"count_spike_ins_{sample}.log")
-    shell:
-        "(python {input.script} \
-        --fasta {input.fasta} \
-        --bam {input.bam} \
-        --out {params.out} \
-        --verbose) &> {log}"
-        
-################################################################################
-### Collect count spike ins
-################################################################################
-
-rule collect_count_spike_ins:
-    input:
-        counts = expand(os.path.join(config["output_dir"], "{sample}", "spike_ins", "counts", "counts.tsv"), sample=get_samples())
-    output:
-        counts = os.path.join(config["output_dir"], "spike_ins", "counts.tsv")
-    threads:    1
-    log:
-        os.path.join(config["local_log"],"collect_count_spike_ins.log")
-    run:
-        dfs = []
-        for i in input.counts:
-            sample_name = i.strip().split("/")[1]
-            df = pd.read_csv(i, header=0, sep="\t")
-            df.set_index("Name", inplace=True)
-            df.columns = df.columns + "_" + sample_name
-            df.reset_index(inplace=True)
-            dfs.append(df)
-        df_final = reduce(lambda left,right: pd.merge(left,right,on='Name'), dfs)
-        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
-
 ################################################################################
 ################################################################################
 ################################################################################
@@ -950,4 +843,108 @@ rule extract_small_RNAs:
         --bam_out {output.bam} \
         --verbose; \
         samtools index {output.bam} > {output.bai}) &> {log}"
-    
+
+################################################################################
+### HTSeq count 22G RNAs on the opposite strand of genes
+################################################################################
+
+rule count_genomic_alignment_htseq_multi_mappers:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam.bai"),
+        gtf = config["gtf"]
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_multi_mappers.tsv")
+    log:
+        os.path.join(config["local_log"],"count_genomic_alignment_htseq_multi_mappers_{sample}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded reverse \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        --nonunique all \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+################################################################################
+### Prepare counts table 
+################################################################################
+
+rule prepare_count_genomic_alignment_htseq_multi_mappers:
+    input:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_multi_mappers.tsv")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_multi_mappers.forDE.tsv")
+    log:
+        os.path.join(config["local_log"], "prepare_count_genomic_alignment_htseq_multi_mappers_{sample}.log")
+    run:
+        df = pd.read_csv(input.htseq_counts_table, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df["counts"] = df["counts"].astype(int)
+        df.set_index("Name", inplace=True)
+        df.to_csv(output.htseq_counts_table, header=True, sep="\t", index=True)
+
+################################################################################
+### Input preparation for edgeR (salmon quant reads)
+################################################################################
+
+rule edgeR_prepare_pairs_count_genomic_alignment_htseq_multi_mappers_forDE:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "count_genomic_alignment_htseq_multi_mappers.forDE.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "count_genomic_alignment_htseq_multi_mappers.forDE.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "prepare_pairs", "count_genomic_alignment_htseq_multi_mappers_forDE", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "prepare_pairs", "count_genomic_alignment_htseq_multi_mappers_forDE", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "prepare_pairs", "count_genomic_alignment_htseq_multi_mappers_forDE"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_count_genomic_alignment_htseq_multi_mappers_forDE__{experiment1}__{experiment2}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        python {input.script} \
+        --input_condition1 '{input.counts1}' \
+        --condition1_name {params.condition1_name} \
+        --input_condition2 '{input.counts2}' \
+        --condition2_name {params.condition2_name} \
+        --outfile_counts {output.counts} \
+        --outfile_conditions {output.conditions}) &> {log}"
+
+################################################################################
+### Differential expression between conditions
+################################################################################
+
+rule edgeR_differential_count_genomic_alignment_htseq_multi_mappers:
+    input:
+        counts = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "prepare_pairs", "count_genomic_alignment_htseq_multi_mappers_forDE", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "prepare_pairs", "count_genomic_alignment_htseq_multi_mappers_forDE", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple_no_filter.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "DE_edgeR", "count_genomic_alignment_htseq_multi_mappers_forDE", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "gene_comparison", "DE__{experiment1}__{experiment2}", "DE_edgeR", "count_genomic_alignment_htseq_multi_mappers_forDE", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"],  "gene_comparison", "DE__{experiment1}__{experiment2}", "DE_edgeR", "count_genomic_alignment_htseq_multi_mappers_forDE"),
+    conda:
+        "envs/DE.yaml"
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_count_genomic_alignment_htseq_multi_mappers__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
