@@ -16,8 +16,10 @@ rule finish:
     input:
         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf"),
         bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
-        bowtie_index = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
-        salmon_index = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx")
+        bowtie_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
+        salmon_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"),
+        bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
+        salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx")
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as
@@ -208,7 +210,7 @@ rule filter_repeats_bed:
 ### Extract repeat sequences
 ##################################################################################
 
-rule extract_repeat_sequences:
+rule extract_repeat_sequences_filtered:
     input:
         annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff"),
         genome = config["genome"]
@@ -217,7 +219,7 @@ rule extract_repeat_sequences:
     conda:
         "envs/cufflinks.yaml"
     log:
-        os.path.join(config["local_log"],"extract_repeat_sequences.log")
+        os.path.join(config["local_log"],"extract_repeat_sequences_filtered.log")
     shell:
         "(gffread {input.annotation} \
         -g {input.genome} \
@@ -260,6 +262,67 @@ rule index_repeats_filtered_salmon:
         "envs/salmon.yaml"
     log:
         os.path.join(config["local_log"], "index_repeats_filtered_salmon.log")
+    shell:
+        "(salmon index \
+        -t {input.transcripts} \
+        -i {output.index} \
+        -k {params.kmer}) &> {log}"
+
+##################################################################################
+### Extract repeat sequences
+##################################################################################
+
+rule extract_repeat_sequences:
+    input:
+        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
+        genome = config["genome"]
+    output:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    conda:
+        "envs/cufflinks.yaml"
+    log:
+        os.path.join(config["local_log"],"extract_repeat_sequences.log")
+    shell:
+        "(gffread {input.annotation} \
+        -g {input.genome} \
+        -w {output.transcripts}) &> {log}"
+
+#################################################################################
+### Index repeats bowtie
+#################################################################################
+
+rule index_repeats_bowtie:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"))
+    params:
+        prefix = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie", "bowtie")
+    threads:        20
+    conda:
+        "envs/bowtie.yaml"
+    log:
+        os.path.join(config["local_log"],"index_repeats_bowtie.log")
+    shell:
+        "(mkdir -p {output.index}; \
+        bowtie-build {input.transcripts} {params.prefix}) &> {log}"
+
+################################################################################
+### Index transposon with salmon
+################################################################################
+
+rule index_repeats_salmon:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"))
+    params:
+        kmer = 21
+    threads:    20
+    conda:
+        "envs/salmon.yaml"
+    log:
+        os.path.join(config["local_log"], "index_repeats_salmon.log")
     shell:
         "(salmon index \
         -t {input.transcripts} \
