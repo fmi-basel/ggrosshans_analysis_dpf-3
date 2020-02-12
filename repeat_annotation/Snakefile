@@ -19,7 +19,9 @@ rule finish:
         bowtie_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
         salmon_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"),
         bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
-        salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx")
+        salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
+        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
+        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as
@@ -330,75 +332,46 @@ rule index_repeats_salmon:
         -k {params.kmer}) &> {log}"
         
          
-# ################################################################################
-# ### Create different categories of transposon mappings
-# ################################################################################
+################################################################################
+### Create different categories of repeat mappings
+################################################################################
 
-# rule create_transposon_mappings:
-#     input:
-#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
-#     output:
-#         transposon2repName = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
-#         transposon2repClass = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
-#         transposon2repFamily = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv")
-#     log:
-#         os.path.join(config["local_log"], "create_transposon_mappings.log")
-#     shell:
-#         "(cut -f 9 {input.gtf} \
-#         | cut -f 1,2 -d \";\" \
-#         | sed 's/; repName \"/\\t/' \
-#         | sed 's/\"//' > {output.transposon2repName}; \
-#         cut -f 9 {input.gtf} \
-#         | cut -f 1,3 -d \";\" \
-#         | sed 's/; repClass \"/\\t/' \
-#         | sed 's/\"//' > {output.transposon2repClass}; \
-#         cut -f 9 {input.gtf} \
-#         | cut -f 1,4 -d \";\" \
-#         | sed 's/; repFamily \"/\\t/' \
-#         | sed 's/\"//' > {output.transposon2repFamily}; \
-#         ) &>{log}"
-        
+rule create_repeats_mappings:
+    input:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
+    output:
+        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repName.tsv"),
+        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repClass.tsv"),
+        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv")
+    log:
+        os.path.join(config["local_log"], "create_repeats_mappings.log")
+    run:
+        df = pd.read_csv(input.gff, header=None, sep="\t")
+        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
+        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
+        df["repFamily"] = df["repFamily"].str.replace(";","")
+        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
+        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
+        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
+    
+################################################################################
+### Create different categories of transposon mappings
+################################################################################
 
-        
-# ################################################################################
-# ### transposons to transposons family
-# ################################################################################
-
-# rule transposons_to_transposons_family:
-#     input:
-#         gff = config["gff_transposons"]
-#     output:
-#         transposons2transposons_family = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
-#     log:
-#         os.path.join(config["local_log"], "transposons_to_transposons_family.log")
-#     shell:
-#         "(cut -f 9 {input.gff} | \
-#         grep Family | grep Name | \
-#         cut -f 2,3 -d \";\" | \
-#         sed \'s/Name=//\' | \
-#         sed \'s/;Family=/ /\' | \
-#         sort -u \
-#         > {output.transposons2transposons_family} \
-#         ) &> {log}"
-        
-        
-# ################################################################################
-# ### gff 2 bed for transposons (Transposon Elements)
-# ################################################################################
-
-# rule gff_transposons_2_bed:
-#     input:
-#         gff = config["gff_transposons"],
-#         script = os.path.join(config["scripts"], "gff_transposons_2_bed.py")
-#     output:
-#         bed = os.path.join(config["output_dir"], "annotation", "c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.bed")
-#     log:
-#         os.path.join(config["local_log"], "gff_transposons_2_bed.log")
-#     conda:
-#         "envs/HTSeq_pandas_samtools_seaborn.yaml"        
-#     shell:
-#         "(python {input.script} \
-#         --gff {input.gff} \
-#         --bed {output.bed} \
-#         --verbose \
-#         ) &> {log}"
+rule create_repeats_filtered_mappings:
+    input:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff")
+    output:
+        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repName.tsv"),
+        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repClass.tsv"),
+        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
+    log:
+        os.path.join(config["local_log"], "create_repeats_filtered_mappings.log")
+    run:
+        df = pd.read_csv(input.gff, header=None, sep="\t")
+        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
+        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
+        df["repFamily"] = df["repFamily"].str.replace(";","")
+        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
+        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
+        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
