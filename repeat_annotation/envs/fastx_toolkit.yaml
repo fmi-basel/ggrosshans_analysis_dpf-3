@@ -2,7 +2,6 @@
 channels:
   - conda-forge
   - bioconda
-  - biocomp
 dependencies:
-  - multiqc=1.8
+  - fastx_toolkit=0.0.14
 ...

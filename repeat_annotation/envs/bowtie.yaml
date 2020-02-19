@@ -2,7 +2,7 @@
 channels:
   - conda-forge
   - bioconda
-  - biocomp
 dependencies:
-  - multiqc=1.8
+  - bowtie=1.2.2
+  - samtools=1.9
 ...

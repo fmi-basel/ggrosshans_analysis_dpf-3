@@ -1,8 +1,7 @@
 ---
 channels:
-  - conda-forge
   - bioconda
-  - biocomp
+  - conda-forge
 dependencies:
-  - multiqc=1.8
+  - picard=2.20.2
 ...

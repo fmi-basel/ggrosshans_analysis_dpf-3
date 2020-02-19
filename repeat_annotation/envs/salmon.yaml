@@ -2,7 +2,6 @@
 channels:
   - conda-forge
   - bioconda
-  - biocomp
 dependencies:
-  - multiqc=1.8
+  - salmon=0.14.2
 ...

@@ -44,11 +44,28 @@ def main():
     )
     
     parser.add_argument(
+        "--gff",
+        dest="gff",
+        help="Output gff file",
+        required=True,
+        metavar="FILE"
+    )
+    
+    parser.add_argument(
         "--bed",
         dest="bed",
         help="Output bed file",
         required=True,
         metavar="FILE"
+    )
+    
+    parser.add_argument(
+        "--filter-chr",
+        dest="filter_chr",
+        help="Filter chr prefix",
+        action="store_true",
+        required=False,
+        default=False,
     )
 
     parser.add_argument(
@@ -80,23 +97,26 @@ def main():
 
     df = pd.read_csv(options.ucsc_repeats, header=0, sep="\t")
     
+    # gtf
     w = open(options.gtf, 'w')
     for index, row in df.iterrows():
         
         chrom = str(row['genoName'])
+        if options.filter_chr:
+            chrom = chrom.replace("chr", "")
         start = str(row['genoStart']+1)
         end = str(row['genoEnd'])
         strand = str(row["strand"])
         
-        gene_id = f"{chrom}:{start}-{end}:{strand};"
+        rep_id = f"repeat \"{chrom}:{start}-{end}:{strand}\";"
         repName = f"repName \"{row['repName']}\";"
         repClass = f"repClass \"{row['repClass']}\";"
         repFamily = f"repFamily \"{row['repFamily']}\";"
         
-        attributes = " ".join([gene_id, repName, repClass, repFamily + os.linesep])
+        attributes = " ".join([rep_id, repName, repClass, repFamily + os.linesep])
         
         w.write("\t".join([chrom,
-                          "uscs_repbase",
+                          "ucsc_repbase",
                           "exon",
                           str(start),
                           str(end),
@@ -106,20 +126,49 @@ def main():
                           attributes]))
     w.close()
     
+    # gff
+    w = open(options.gff, 'w')
+    for index, row in df.iterrows():
+        
+        chrom = str(row['genoName'])
+        if options.filter_chr:
+            chrom = chrom.replace("chr", "")
+        start = str(row['genoStart']+1)
+        end = str(row['genoEnd'])
+        strand = str(row["strand"])
+        
+        rep_id = f"repeat={chrom}:{start}-{end}:{strand};"
+        repName = f"repName={row['repName']};"
+        repClass = f"repClass={row['repClass']};"
+        repFamily = f"repFamily={row['repFamily']};"
+        
+        attributes = "".join([rep_id, repName, repClass, repFamily + os.linesep])
+        
+        w.write("\t".join([chrom,
+                          "ucsc_repbase",
+                          "exon",
+                          str(start),
+                          str(end),
+                          ".",
+                          strand,
+                          ".",
+                          attributes]))
+    w.close()
+    
+    # bed
     w = open(options.bed, 'w')
     for index, row in df.iterrows():
         
         chrom = str(row['genoName'])
+        if options.filter_chr:
+            chrom = chrom.replace("chr", "")
         start = str(row['genoStart'])
         end = str(row['genoEnd'])
         strand = str(row["strand"])
         
-        gene_id = f"{chrom}:{start}-{end}:{strand}"
-        # repName = f"repName \"{row['repName']}\";"
-        # repClass = f"repClass \"{row['repClass']}\";"
-        # repFamily = f"repFamily \"{row['repFamily']}\";"
+        rep_id = f"{chrom}:{start}-{end}:{strand}"
         
-        attributes = "|".join([gene_id, row['repName'], row['repClass'], row['repFamily']])
+        attributes = "|".join([rep_id, row['repName'], row['repClass'], row['repFamily']])
         
         w.write("\t".join([chrom,
                            str(start),

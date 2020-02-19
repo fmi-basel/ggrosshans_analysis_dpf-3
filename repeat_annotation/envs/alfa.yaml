@@ -4,5 +4,5 @@ channels:
   - bioconda
   - biocomp
 dependencies:
-  - multiqc=1.8
+  - alfa=1.1.1
 ...

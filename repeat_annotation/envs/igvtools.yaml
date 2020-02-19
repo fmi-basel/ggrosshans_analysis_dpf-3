@@ -2,7 +2,6 @@
 channels:
   - conda-forge
   - bioconda
-  - biocomp
 dependencies:
-  - multiqc=1.8
+  - igvtools=2.3.93
 ...

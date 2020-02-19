@@ -1,8 +1,6 @@
 ---
 channels:
-  - conda-forge
   - bioconda
-  - biocomp
 dependencies:
-  - multiqc=1.8
+  - fastqc=0.11.8
 ...
