@@ -1,0 +1,31 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+
+  # annotation
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+
+  # rule params
+  adapter: "AACTGTAGGCACCATCAAT"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  kmer_len: ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
+  umi_length: 12
+
+  # samples
+  experiment_samples: {
+    wago-9_input: ["wago-9_input_1", "wago-9_input_2", "wago-9_input_3"],
+    wago-9_IP: ["wago-9_IP_1", "wago-9_IP_2", "wago-9_IP_3"]
+  }
+
+  # comparisons
+  combinations: [["wago-9_input", "wago-9_IP"]]
+...

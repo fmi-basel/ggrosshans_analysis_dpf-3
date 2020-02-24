@@ -1,0 +1,7 @@
+---
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - stringtie=1.3.6
+...
