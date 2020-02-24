@@ -35,7 +35,7 @@ rule finish:
         fastqc = expand(os.path.join(config["output_dir"], "{sample}", "fastqc"), sample=get_samples()),
         #out_potential_umis = expand(os.path.join(config["output_dir"], "{sample}", "potential_umis", "{kmer_len}", "counts.tsv"), sample=get_samples(), kmer_len=config["kmer_len"]),
         out_freq = expand(os.path.join(config["output_dir"], "{sample}", "frequency_for_UMI_detection", "frequency.tsv"), sample=get_samples()),
-        cutadapt = expand(os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"), sample=get_samples())
+        filter_quality = expand(os.path.join(config["output_dir"], "{sample}", "filter_quality.fastq.gz"), sample=get_samples())
         # reads = expand(os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"), sample=get_samples())
         #fastqc_filtered = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_filtered"), sample=get_samples()),
         # plot_small_RNAs = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
@@ -247,6 +247,34 @@ rule trim_3p_adapter_SE:
         --overlap {params.overlap} \
         --cores {threads} \
         {input.reads} | gzip > {output.reads}) &> {log}"
+
+################################################################################
+### Filter low quality reads
+################################################################################
+
+rule filter_low_quality_reads:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz")
+    output:
+        reads = os.path.join(config["output_dir"], "{sample}", "filter_quality.fastq.gz")
+    params:
+        q = "20",
+        p = "100",
+        Q = "33",
+        z = "-z"
+    log:
+        os.path.join(config["local_log"], "filter_low_quality_reads_{sample}.log")
+    threads:    2
+    conda:  "envs/fastx_toolkit.yaml"
+    shell:
+        "(fastq_quality_filter \
+        -q {params.q} \
+        -p {params.p} \
+        -Q {params.Q} \
+        {params.z} \
+        -i <(zcat {input.reads}) \
+        -o {output.reads}) &> {log}"
+
 
 # ################################################################################
 # ### Fastqc_filtered
