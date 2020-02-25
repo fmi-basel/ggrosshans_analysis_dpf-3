@@ -7,6 +7,7 @@ configfile: "config.yaml"
 import os
 import sys
 import pandas as pd
+from functools import reduce
 
 ################################################################################
 ### Custom functions
@@ -14,6 +15,7 @@ import pandas as pd
 
 def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
+    # return ['Input_WAGO-3_A']
     return list(design_table["sample"])
 
 def get_fq_1(wildcards):
@@ -35,8 +37,8 @@ rule finish:
         out_freq = expand(os.path.join(config["output_dir"], "{sample}", "frequency_for_UMI_detection", "frequency.tsv"), sample=get_samples()),
         pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
         pdf_other = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
-        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=get_samples())
-        # reads = expand(os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter.fastq.gz"), sample=get_samples())
+        counts_22G = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.22G.tsv"), sample=get_samples())
+        
         #fastqc_filtered = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_filtered"), sample=get_samples()),
         # plot_small_RNAs = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs"),
         #                          zip,
@@ -439,14 +441,23 @@ rule merge_count_sequences:
     input:
         counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.tsv"), sample=get_samples())
     output:
-        counts = os.path.join(config["output_dir"], "summary", "counts", "alignment.sorted.filtered", "counts.tsv")
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
+    params:
+        sample_name = expand("{sample}", sample=get_samples())
     threads:    1
     log:
         os.path.join(config["local_log"],"merge_count_sequences.log")
     run:
-        for i in input.counts:
-            df = pd.read_csv(i, header=0, sep="\t")
-            df.set_index("")
+        dfs = []
+        for i in range(0, len(input.counts)):
+            df = pd.read_csv(input.counts[i], header=0, sep="\t")
+            df["counts"] = df["counts"].round()
+            sample_name = params.sample_name[i]
+            df.columns = ["Name", sample_name]
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
 
 ################################################################################
 ### subset 22G RNAs
@@ -454,20 +465,33 @@ rule merge_count_sequences:
 
 rule subset_22G_RNAs:
     input:
-        counts = os.path.join(config["output_dir"], "summary", "counts", "alignment.sorted.filtered", "counts.tsv")
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.tsv")
     output:
-        counts = os.path.join(config["output_dir"], "summary", "counts", "alignment.sorted.filtered", "counts.22G.tsv")
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.22G.tsv")
+    log:
+        os.path.join(config["local_log"],"subset_22G_RNAs.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")
+        df_subset = df[(df["Name"].str.startswith("G")) & (df["Name"].str.len() == 22)].copy()
+        df_subset.to_csv(output.counts, header=True, sep="\t", index=False)
 
 ################################################################################
-### split 22G RNAs
+### split 22G RNAs counts
 ################################################################################
 
-rule split_22G_RNAs:
+rule split_22G_RNAs_counts:
     input:
-        counts = os.path.join(config["output_dir"], "summary", "counts", "alignment.sorted.filtered", "counts.22G.tsv")
+        counts = os.path.join(config["output_dir"], "counts", "alignment.sorted.filtered", "counts.22G.tsv")
     output:
-        counts = expand(os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.22G.tsv"), sample=get_samples())
-
+        counts = os.path.join(config["output_dir"], "{sample}", "counts", "alignment.sorted.filtered", "counts.22G.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"],"split_22G_RNAs_counts_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=0, sep="\t")[["Name", params.sample_name]]
+        df.columns = ["Name", "counts"]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
 
 ################################################################################
 ### Input preparation for edgeR
