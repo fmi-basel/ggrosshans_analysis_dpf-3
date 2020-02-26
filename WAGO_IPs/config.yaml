@@ -23,10 +23,33 @@
 
   # samples
   experiment_samples: {
-    wago-9_input: ["wago-9_input_1", "wago-9_input_2", "wago-9_input_3"],
-    wago-9_IP: ["wago-9_IP_1", "wago-9_IP_2", "wago-9_IP_3"]
+    Input_WAGO-1: [Input_WAGO-1_A, Input_WAGO-1_B, Input_WAGO-1_C],
+    Input_WAGO-1_dpf-3_null: [Input_WAGO-1_dpf-3_null_A, Input_WAGO-1_dpf-3_null_B, Input_WAGO-1_dpf-3_null_C],
+    Input_WAGO-1_P3G: [Input_WAGO-1_P3G_A, Input_WAGO-1_P3G_B, Input_WAGO-1_P3G_C],
+    Input_WAGO-3: [Input_WAGO-3_A, Input_WAGO-3_B, Input_WAGO-3_C],
+    Input_WAGO-3_dpf-3_null: [Input_WAGO-3_dpf-3_null_A, Input_WAGO-3_dpf-3_null_B, Input_WAGO-3_dpf-3_null_C],
+    Input_WAGO-4: [Input_WAGO-4_A, Input_WAGO-4_B, Input_WAGO-4_C],
+    Input_WAGO-4_dpf-3_null: [Input_WAGO-4_dpf-3_null_A, Input_WAGO-4_dpf-3_null_B, Input_WAGO-4_dpf-3_null_C],
+    IP_WAGO-1: [IP_WAGO-1_A, IP_WAGO-1_B, IP_WAGO-1_C],
+    IP_WAGO-1_dpf-3_null: [IP_WAGO-1_dpf-3_null_A, IP_WAGO-1_dpf-3_null_B, IP_WAGO-1_dpf-3_null_C],
+    IP_WAGO-1_P3G: [IP_WAGO-1_P3G_A, IP_WAGO-1_P3G_B, IP_WAGO-1_P3G_C],
+    IP_WAGO-3: [IP_WAGO-3_A, IP_WAGO-3_B, IP_WAGO-3_C],
+    IP_WAGO-3_dpf-3_null: [IP_WAGO-3_dpf-3_null_A, IP_WAGO-3_dpf-3_null_B, IP_WAGO-3_dpf-3_null_C],
+    IP_WAGO-4: [IP_WAGO-4_A, IP_WAGO-4_B, IP_WAGO-4_C],
+    IP_WAGO-4_dpf-3_null: [IP_WAGO-4_dpf-3_null_A, IP_WAGO-4_dpf-3_null_B, IP_WAGO-4_dpf-3_null_C],
   }
 
   # comparisons
-  combinations: [["wago-9_input", "wago-9_IP"]]
+  combinations: [[Input_WAGO-1, IP_WAGO-1],
+                 [Input_WAGO-1_dpf-3_null, IP_WAGO-1_dpf-3_null],
+                 [Input_WAGO-1_P3G, IP_WAGO-1_P3G],
+                 [Input_WAGO-3, IP_WAGO-3],
+                 [Input_WAGO-3_dpf-3_null, IP_WAGO-3_dpf-3_null],
+                 [Input_WAGO-4, IP_WAGO-4],
+                 [Input_WAGO-4_dpf-3_null, IP_WAGO-4_dpf-3_null],
+                 [IP_WAGO-1_P3G, IP_WAGO-1],
+                 [IP_WAGO-1_dpf-3_null, IP_WAGO-1],
+                 [IP_WAGO-3_dpf-3_null, IP_WAGO-3],
+                 [IP_WAGO-4_dpf-3_null, IP_WAGO-4]
+                ]
 ...
