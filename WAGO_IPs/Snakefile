@@ -44,10 +44,10 @@ rule finish:
                                    zip,
                                    experiment1 = [i[0]  for i in list(config["combinations"])],
                                    experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # prepare_pairs_all = expand(os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
-        #                            zip,
-        #                            experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                            experiment2 = [i[1]  for i in list(config["combinations"])]),
+        prepare_pairs_all = expand(os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+                                    zip,
+                                    experiment1 = [i[0]  for i in list(config["combinations"])],
+                                    experiment2 = [i[1]  for i in list(config["combinations"])]),
         # plot_small_RNAs_unique_mappers = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs_unique_mappers"),
         #                          zip,
         #                          experiment1 = [i[0]  for i in list(config["combinations"])],
@@ -604,7 +604,7 @@ rule edgeR_differential_22G:
     input:
         counts = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
         conditions = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple_no_filter.R")
+        script = os.path.join(config["scripts"], "DE_simple.R")
     output:
         table_FDR_low_tsv = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
         table_all = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
@@ -683,7 +683,7 @@ rule edgeR_differential_all:
     input:
         counts = os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
         conditions = os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple_no_filter.R")
+        script = os.path.join(config["scripts"], "DE_simple.R")
     output:
         table_FDR_low_tsv = os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
         table_all = os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
