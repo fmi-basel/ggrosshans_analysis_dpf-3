@@ -48,10 +48,10 @@ rule finish:
                                     zip,
                                     experiment1 = [i[0]  for i in list(config["combinations"])],
                                     experiment2 = [i[1]  for i in list(config["combinations"])]),
-        bai_focus = expand(os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam.bai"),
-                           zip,
-                           experiment1 = [i[0]  for i in list(config["combinations_focus"])],
-                           experiment2 = [i[1]  for i in list(config["combinations_focus"])])
+        htseq_focus = expand(os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "counts22G.tsv"),
+                             zip,
+                             experiment1 = [i[0]  for i in list(config["combinations_focus"])],
+                             experiment2 = [i[1]  for i in list(config["combinations_focus"])])
         # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
 
 ################################################################################
@@ -675,6 +675,36 @@ rule bowtie_align_extracted_subset:
         -o {output.bam}; \
         samtools index -@ {threads} {output.bam} {output.bai}; \
         ) &> {log}"
+
+################################################################################
+### HTSeq count genomic alignment
+################################################################################
+
+rule count_extracted_subset:
+    input:
+        bam = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam.bai"), 
+        gtf = config["gtf_canonical_and_transposon_transcripts"]
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "counts22G.tsv"), 
+    log:
+        os.path.join(config["local_log"],"count_extrsacted_subset__{experiment1}__{experiment2}.log")
+    threads:    1
+    conda:
+        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded no \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        --nonunique all \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
 
 ################################################################################
 ################################################################################
