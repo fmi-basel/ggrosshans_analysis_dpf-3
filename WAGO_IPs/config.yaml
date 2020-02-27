@@ -52,4 +52,6 @@
                  [IP_WAGO-3_dpf-3_null, IP_WAGO-3],
                  [IP_WAGO-4_dpf-3_null, IP_WAGO-4]
                 ]
+
+  combinations_focus: [[IP_WAGO-1_P3G, IP_WAGO-1]]
 ...

@@ -40,23 +40,18 @@ rule finish:
         pdf_other = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
         stats = os.path.join(config["output_dir"], "summary", "stats", "stats.tsv"),
         #fastqc_filtered = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_filtered"), sample=get_samples()),
-        prepare_pairs_22G = expand(os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
-                                   zip,
-                                   experiment1 = [i[0]  for i in list(config["combinations"])],
-                                   experiment2 = [i[1]  for i in list(config["combinations"])]),
+        # prepare_pairs_22G = expand(os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        #                            zip,
+        #                            experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                            experiment2 = [i[1]  for i in list(config["combinations"])]),
         prepare_pairs_all = expand(os.path.join(config["output_dir"], "comparisons", "DE__all__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
                                     zip,
                                     experiment1 = [i[0]  for i in list(config["combinations"])],
                                     experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # plot_small_RNAs_unique_mappers = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "plot_small_RNAs_unique_mappers"),
-        #                          zip,
-        #                          experiment1 = [i[0]  for i in list(config["combinations"])],
-        #                          experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # # gtf = os.path.join(config["output_dir"], "annotation", "c_elegans.WS220.annotations.trs.exon.corrected_with_gene_id.sorted.gtf"),
-        # pdf_alfa_aligment_statistics = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_filter = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_unique_mappers = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"), sample=get_samples()),
-        # pdf_alfa_aligment_statistics_unique_mappers_filter_miRNAs = expand(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers_filter_miRNAs", "alfa_aligment_statistics_unique_mappers_filter_miRNAs.Biotypes.pdf"), sample=get_samples())
+        bai_focus = expand(os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam.bai"),
+                           zip,
+                           experiment1 = [i[0]  for i in list(config["combinations_focus"])],
+                           experiment2 = [i[1]  for i in list(config["combinations_focus"])])
         # multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
 
 ################################################################################
@@ -621,6 +616,65 @@ rule edgeR_differential_22G:
         --conditions {input.conditions} \
         --counts {input.counts} \
         --outfolder {params.output_dir}) &> {log}"
+
+################################################################################
+### Select subset of 22G RNAs and extract the sequence
+################################################################################
+
+rule convert_subset_of_22G_RNAs_to_fasta:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+    output:
+        fasta = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "22G_RNAs.fa")
+    log:
+        os.path.join(config["local_log"], "convert_subset_of_22G_RNAs_to_fasta__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        df = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        df = df[df["logFC"]<0]
+        with open(output.fasta, 'w') as w:
+            for idx, row in df.iterrows():
+                w.write(">"+row["id"]+os.linesep)
+                w.write(row["id"]+os.linesep)
+
+################################################################################
+### bowtie align extracted subset
+################################################################################
+
+rule bowtie_align_extracted_subset:
+    input:
+        reads = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "22G_RNAs.fa"),
+        bowtie_index = config["bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "comparisons", "DE__22G__{experiment1}__{experiment2}", "DE_edgeR", "alignment.sorted.bam.bai"),
+    params:
+        index_prefix = config["bowtie_index"] + "/bowtie"
+    threads:   8
+    conda:
+        "envs/bowtie.yaml"
+    log:
+        os.path.join(config["local_log"],"bowtie_align_extracted_subset__{experiment1}__{experiment2}.log")
+    shell:
+        "(bowtie \
+        -v 0 \
+        --all \
+        --best \
+        --strata \
+        --sam \
+        --fr \
+        -f \
+        --threads {threads} \
+        {params.index_prefix} \
+        {input.reads} \
+        | samtools view -bS - \
+        | samtools sort \
+        -m 10G \
+        --threads {threads} \
+        --output-fmt BAM - \
+        -o {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai}; \
+        ) &> {log}"
 
 ################################################################################
 ################################################################################
