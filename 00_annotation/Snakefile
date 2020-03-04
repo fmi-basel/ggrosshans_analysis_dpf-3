@@ -21,7 +21,299 @@ rule finish:
         bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
         salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
         repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
-        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
+        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv"),
+        star_index = expand(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"), sjdbOverhang=config["sjdbOverhang"]),
+        bowtie_index = os.path.join(config["output_dir"], "indexes", "genome", "bowtie")
+ 
+################################################################################
+### ucsc repeats to gtf and bed
+################################################################################
+
+rule ucsc_repeats_to_gtf_and_bed:
+    input:
+        repeats =  config["repeats"],
+        script = os.path.join(config["scripts"], "ucsc_repeats_to_gtf_gff_bed.py")
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf"),
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
+        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
+    log:
+        os.path.join(config["local_log"], "ucsc_repeats_to_gtf_and_bed.log")
+    shell:
+        "(python {input.script} \
+        --ucsc_repeats {input.repeats} \
+        --gtf {output.gtf} \
+        --gff {output.gff} \
+        --bed {output.bed} \
+        --filter-chr \
+        --verbose) &> {log}"
+
+################################################################################
+### filter repeats gtf
+################################################################################
+
+rule filter_repeats_gtf:
+    input:
+        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf")
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+    log:
+        os.path.join(config["local_log"], "filter_repeats_gtf.log")
+    shell:
+        "(grep -P -v 'repClass \"Simple_repeat\"|repClass \"Low_complexity\"|repClass \"rRNA\"\' \
+         {input.gtf} > {output.gtf}) &> {log}"
+
+################################################################################
+### filter repeats gff
+################################################################################
+
+rule filter_repeats_gff:
+    input:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
+    output:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff")
+    log:
+        os.path.join(config["local_log"], "filter_repeats_gff.log")
+    shell:
+        "(grep -P -v 'repClass=Simple_repeat|repClass=Low_complexity|repClass=rRNA\' \
+         {input.gff} > {output.gff}) &> {log}"
+         
+################################################################################
+### filter repeats bed (also remove chr from beginning of the file)
+################################################################################
+
+rule filter_repeats_bed:
+    input:
+        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
+    output:
+        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
+    log:
+        os.path.join(config["local_log"], "filter_repeats_bed.log")
+    shell:
+        "(grep -P -v 'Simple_repeat|Low_complexity|rRNA' \
+         {input.bed} > {output.bed}) &> {log}"
+
+##################################################################################
+### Extract repeat sequences
+##################################################################################
+
+rule extract_repeat_sequences_filtered:
+    input:
+        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff"),
+        genome = config["genome"]
+    output:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
+    conda:
+        os.path.join(config["envs"], "cufflinks_2.2.1.yaml")
+    log:
+        os.path.join(config["local_log"],"extract_repeat_sequences_filtered.log")
+    shell:
+        "(gffread {input.annotation} \
+        -g {input.genome} \
+        -w {output.transcripts}) &> {log}"
+
+#################################################################################
+### Index repeats bowtie
+#################################################################################
+
+rule index_repeats_filtered_bowtie:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"))
+    params:
+        prefix = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie", "bowtie")
+    threads:        20
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"index_repeats_filtered_bowtie.log")
+    shell:
+        "(mkdir -p {output.index}; \
+        bowtie-build {input.transcripts} {params.prefix}) &> {log}"
+
+################################################################################
+### Index transposon with salmon
+################################################################################
+
+rule index_repeats_filtered_salmon:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"))
+    params:
+        kmer = 21
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "salmon_1.1.0.yaml")
+    log:
+        os.path.join(config["local_log"], "index_repeats_filtered_salmon.log")
+    shell:
+        "(salmon index \
+        -t {input.transcripts} \
+        -i {output.index} \
+        -k {params.kmer}) &> {log}"
+
+##################################################################################
+### Extract repeat sequences
+##################################################################################
+
+rule extract_repeat_sequences:
+    input:
+        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
+        genome = config["genome"]
+    output:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    conda:
+        os.path.join(config["envs"], "cufflinks_2.2.1.yaml")
+    log:
+        os.path.join(config["local_log"],"extract_repeat_sequences.log")
+    shell:
+        "(gffread {input.annotation} \
+        -g {input.genome} \
+        -w {output.transcripts}) &> {log}"
+
+#################################################################################
+### Index repeats bowtie
+#################################################################################
+
+rule index_repeats_bowtie:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"))
+    params:
+        prefix = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie", "bowtie")
+    threads:        20
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"index_repeats_bowtie.log")
+    shell:
+        "(mkdir -p {output.index}; \
+        bowtie-build {input.transcripts} {params.prefix}) &> {log}"
+
+################################################################################
+### Index transposon with salmon
+################################################################################
+
+rule index_repeats_salmon:
+    input:
+        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"))
+    params:
+        kmer = 21
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "salmon_1.1.0.yaml")
+    log:
+        os.path.join(config["local_log"], "index_repeats_salmon.log")
+    shell:
+        "(salmon index \
+        -t {input.transcripts} \
+        -i {output.index} \
+        -k {params.kmer}) &> {log}"
+        
+         
+################################################################################
+### Create different categories of repeat mappings
+################################################################################
+
+rule create_repeats_mappings:
+    input:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
+    output:
+        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repName.tsv"),
+        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repClass.tsv"),
+        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv")
+    log:
+        os.path.join(config["local_log"], "create_repeats_mappings.log")
+    run:
+        df = pd.read_csv(input.gff, header=None, sep="\t")
+        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
+        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
+        df["repFamily"] = df["repFamily"].str.replace(";","")
+        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
+        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
+        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
+    
+################################################################################
+### Create different categories of transposon mappings
+################################################################################
+
+rule create_repeats_filtered_mappings:
+    input:
+        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff")
+    output:
+        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repName.tsv"),
+        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repClass.tsv"),
+        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
+    log:
+        os.path.join(config["local_log"], "create_repeats_filtered_mappings.log")
+    run:
+        df = pd.read_csv(input.gff, header=None, sep="\t")
+        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
+        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
+        df["repFamily"] = df["repFamily"].str.replace(";","")
+        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
+        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
+        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
+
+#################################################################################
+### Index genome STAR
+#################################################################################
+
+rule index_genome_canonical_geneset_STAR:
+    input:
+        genome = config["genome"],
+        annotation = config["gtf"]
+    output:
+        outputdir = directory(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"))
+    params:
+        sjdbOverhang = "{sjdbOverhang}",
+        outputdir = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index"),
+        tmpdir = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "tmp_{sjdbOverhang}"),
+        outprefix = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}", "STAR_index_{sjdbOverhang}_"),
+        genomeSAindexNbases = 12
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
+    log:
+        os.path.join(config["local_log"],"index_genome_canonical_geneset_STAR_{sjdbOverhang}.log")
+    shell:
+        "(mkdir -p {params.outputdir} {output.outputdir}; \
+        chmod -R 777 {params.outputdir} {output.outputdir}; \
+        STAR \
+        --runMode genomeGenerate \
+        --sjdbOverhang {params.sjdbOverhang} \
+        --genomeDir {output.outputdir} \
+        --outTmpDir {params.tmpdir} \
+        --genomeFastaFiles {input.genome} \
+        --genomeSAindexNbases {params.genomeSAindexNbases} \
+        --outFileNamePrefix {params.outprefix} \
+        --runThreadN {threads} \
+        --sjdbGTFfile {input.annotation}) &> {log}"
+
+#################################################################################
+### Index genome bowtie
+#################################################################################
+
+rule index_genome_bowtie:
+    input:
+        genome = config["genome"],
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "genome", "bowtie"))
+    params:
+        prefix = os.path.join(config["output_dir"], "indexes", "genome", "bowtie", "bowtie")
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"index_genome_bowtie.log")
+    shell:
+        "(mkdir -p {output.index}; \
+        bowtie-build {input.genome} {params.prefix}) &> {log}"
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as
@@ -139,239 +431,3 @@ rule finish:
 #         awk \'{{print $2 \" \" $1}}\' \
 #         > {output.transcriptid2geneid} \
 #         ) &> {log}"
-        
-################################################################################
-### ucsc repeats to gtf and bed
-################################################################################
-
-rule ucsc_repeats_to_gtf_and_bed:
-    input:
-        repeats =  config["repeats"],
-        script = os.path.join(config["scripts"], "ucsc_repeats_to_gtf_gff_bed.py")
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf"),
-        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
-    log:
-        os.path.join(config["local_log"], "ucsc_repeats_to_gtf_and_bed.log")
-    shell:
-        "(python {input.script} \
-        --ucsc_repeats {input.repeats} \
-        --gtf {output.gtf} \
-        --gff {output.gff} \
-        --bed {output.bed} \
-        --filter-chr \
-        --verbose) &> {log}"
-
-################################################################################
-### filter repeats gtf
-################################################################################
-
-rule filter_repeats_gtf:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf")
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
-    log:
-        os.path.join(config["local_log"], "filter_repeats_gtf.log")
-    shell:
-        "(grep -P -v 'repClass \"Simple_repeat\"|repClass \"Low_complexity\"|repClass \"rRNA\"\' \
-         {input.gtf} > {output.gtf}) &> {log}"
-
-################################################################################
-### filter repeats gff
-################################################################################
-
-rule filter_repeats_gff:
-    input:
-        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
-    output:
-        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff")
-    log:
-        os.path.join(config["local_log"], "filter_repeats_gff.log")
-    shell:
-        "(grep -P -v 'repClass=Simple_repeat|repClass=Low_complexity|repClass=rRNA\' \
-         {input.gff} > {output.gff}) &> {log}"
-         
-################################################################################
-### filter repeats bed (also remove chr from beginning of the file)
-################################################################################
-
-rule filter_repeats_bed:
-    input:
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
-    output:
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
-    log:
-        os.path.join(config["local_log"], "filter_repeats_bed.log")
-    shell:
-        "(grep -P -v 'Simple_repeat|Low_complexity|rRNA' \
-         {input.bed} > {output.bed}) &> {log}"
-
-##################################################################################
-### Extract repeat sequences
-##################################################################################
-
-rule extract_repeat_sequences_filtered:
-    input:
-        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff"),
-        genome = config["genome"]
-    output:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
-    conda:
-        "envs/cufflinks.yaml"
-    log:
-        os.path.join(config["local_log"],"extract_repeat_sequences_filtered.log")
-    shell:
-        "(gffread {input.annotation} \
-        -g {input.genome} \
-        -w {output.transcripts}) &> {log}"
-
-
-#################################################################################
-### Index repeats bowtie
-#################################################################################
-
-rule index_repeats_filtered_bowtie:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"))
-    params:
-        prefix = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie", "bowtie")
-    threads:        20
-    conda:
-        "envs/bowtie.yaml"
-    log:
-        os.path.join(config["local_log"],"index_repeats_filtered_bowtie.log")
-    shell:
-        "(mkdir -p {output.index}; \
-        bowtie-build {input.transcripts} {params.prefix}) &> {log}"
-
-################################################################################
-### Index transposon with salmon
-################################################################################
-
-rule index_repeats_filtered_salmon:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"))
-    params:
-        kmer = 21
-    threads:    20
-    conda:
-        "envs/salmon.yaml"
-    log:
-        os.path.join(config["local_log"], "index_repeats_filtered_salmon.log")
-    shell:
-        "(salmon index \
-        -t {input.transcripts} \
-        -i {output.index} \
-        -k {params.kmer}) &> {log}"
-
-##################################################################################
-### Extract repeat sequences
-##################################################################################
-
-rule extract_repeat_sequences:
-    input:
-        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
-        genome = config["genome"]
-    output:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
-    conda:
-        "envs/cufflinks.yaml"
-    log:
-        os.path.join(config["local_log"],"extract_repeat_sequences.log")
-    shell:
-        "(gffread {input.annotation} \
-        -g {input.genome} \
-        -w {output.transcripts}) &> {log}"
-
-#################################################################################
-### Index repeats bowtie
-#################################################################################
-
-rule index_repeats_bowtie:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"))
-    params:
-        prefix = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie", "bowtie")
-    threads:        20
-    conda:
-        "envs/bowtie.yaml"
-    log:
-        os.path.join(config["local_log"],"index_repeats_bowtie.log")
-    shell:
-        "(mkdir -p {output.index}; \
-        bowtie-build {input.transcripts} {params.prefix}) &> {log}"
-
-################################################################################
-### Index transposon with salmon
-################################################################################
-
-rule index_repeats_salmon:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"))
-    params:
-        kmer = 21
-    threads:    20
-    conda:
-        "envs/salmon.yaml"
-    log:
-        os.path.join(config["local_log"], "index_repeats_salmon.log")
-    shell:
-        "(salmon index \
-        -t {input.transcripts} \
-        -i {output.index} \
-        -k {params.kmer}) &> {log}"
-        
-         
-################################################################################
-### Create different categories of repeat mappings
-################################################################################
-
-rule create_repeats_mappings:
-    input:
-        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
-    output:
-        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repName.tsv"),
-        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repClass.tsv"),
-        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv")
-    log:
-        os.path.join(config["local_log"], "create_repeats_mappings.log")
-    run:
-        df = pd.read_csv(input.gff, header=None, sep="\t")
-        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
-        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
-        df["repFamily"] = df["repFamily"].str.replace(";","")
-        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
-        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
-        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
-    
-################################################################################
-### Create different categories of transposon mappings
-################################################################################
-
-rule create_repeats_filtered_mappings:
-    input:
-        gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gff")
-    output:
-        repeat2repName = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repName.tsv"),
-        repeat2repClass = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repClass.tsv"),
-        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
-    log:
-        os.path.join(config["local_log"], "create_repeats_filtered_mappings.log")
-    run:
-        df = pd.read_csv(input.gff, header=None, sep="\t")
-        df.columns = ["seqname", "source", "feature", "start", "end", "score", "strand", "frame", "attribute"]
-        df[["repeat", "repName", "repClass", "repFamily"]] = df["attribute"].str.split(";", n=3, expand=True)
-        df["repFamily"] = df["repFamily"].str.replace(";","")
-        df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
-        df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
-        df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
