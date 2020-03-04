@@ -21,7 +21,9 @@ rule finish:
         bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
         salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
         repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
-        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
+        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv"),
+        star_index = expand(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"), sjdbOverhang=config["sjdbOverhang"]),
+        bowtie_index = os.path.join(config["output_dir"], "indexes", "genome", "bowtie")
  
 ################################################################################
 ### ucsc repeats to gtf and bed
@@ -102,14 +104,13 @@ rule extract_repeat_sequences_filtered:
     output:
         transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
     conda:
-        "envs/cufflinks.yaml"
+        os.path.join(config["envs"], "cufflinks_2.2.1.yaml")
     log:
         os.path.join(config["local_log"],"extract_repeat_sequences_filtered.log")
     shell:
         "(gffread {input.annotation} \
         -g {input.genome} \
         -w {output.transcripts}) &> {log}"
-
 
 #################################################################################
 ### Index repeats bowtie
@@ -124,7 +125,7 @@ rule index_repeats_filtered_bowtie:
         prefix = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie", "bowtie")
     threads:        20
     conda:
-        "envs/bowtie.yaml"
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
     log:
         os.path.join(config["local_log"],"index_repeats_filtered_bowtie.log")
     shell:
@@ -144,7 +145,7 @@ rule index_repeats_filtered_salmon:
         kmer = 21
     threads:    20
     conda:
-        "envs/salmon.yaml"
+        os.path.join(config["envs"], "salmon_1.1.0.yaml")
     log:
         os.path.join(config["local_log"], "index_repeats_filtered_salmon.log")
     shell:
@@ -164,7 +165,7 @@ rule extract_repeat_sequences:
     output:
         transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.fa")
     conda:
-        "envs/cufflinks.yaml"
+        os.path.join(config["envs"], "cufflinks_2.2.1.yaml")
     log:
         os.path.join(config["local_log"],"extract_repeat_sequences.log")
     shell:
@@ -185,7 +186,7 @@ rule index_repeats_bowtie:
         prefix = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie", "bowtie")
     threads:        20
     conda:
-        "envs/bowtie.yaml"
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
     log:
         os.path.join(config["local_log"],"index_repeats_bowtie.log")
     shell:
@@ -205,7 +206,7 @@ rule index_repeats_salmon:
         kmer = 21
     threads:    20
     conda:
-        "envs/salmon.yaml"
+        os.path.join(config["envs"], "salmon_1.1.0.yaml")
     log:
         os.path.join(config["local_log"], "index_repeats_salmon.log")
     shell:
@@ -258,6 +259,61 @@ rule create_repeats_filtered_mappings:
         df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
         df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
         df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
+
+#################################################################################
+### Index genome STAR
+#################################################################################
+
+rule index_genome_canonical_geneset_STAR:
+    input:
+        genome = config["genome"],
+        annotation = config["gtf"]
+    output:
+        outputdir = directory(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"))
+    params:
+        sjdbOverhang = "{sjdbOverhang}",
+        outputdir = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index"),
+        tmpdir = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "tmp_{sjdbOverhang}"),
+        outprefix = os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}", "STAR_index_{sjdbOverhang}_"),
+        genomeSAindexNbases = 12
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
+    log:
+        os.path.join(config["local_log"],"index_genome_canonical_geneset_STAR_{sjdbOverhang}.log")
+    shell:
+        "(mkdir -p {params.outputdir} {output.outputdir}; \
+        chmod -R 777 {params.outputdir} {output.outputdir}; \
+        STAR \
+        --runMode genomeGenerate \
+        --sjdbOverhang {params.sjdbOverhang} \
+        --genomeDir {output.outputdir} \
+        --outTmpDir {params.tmpdir} \
+        --genomeFastaFiles {input.genome} \
+        --genomeSAindexNbases {params.genomeSAindexNbases} \
+        --outFileNamePrefix {params.outprefix} \
+        --runThreadN {threads} \
+        --sjdbGTFfile {input.annotation}) &> {log}"
+
+#################################################################################
+### Index genome bowtie
+#################################################################################
+
+rule index_genome_bowtie:
+    input:
+        genome = config["genome"],
+    output:
+        index = directory(os.path.join(config["output_dir"], "indexes", "genome", "bowtie"))
+    params:
+        prefix = os.path.join(config["output_dir"], "indexes", "genome", "bowtie", "bowtie")
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"index_genome_bowtie.log")
+    shell:
+        "(mkdir -p {output.index}; \
+        bowtie-build {input.genome} {params.prefix}) &> {log}"
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as

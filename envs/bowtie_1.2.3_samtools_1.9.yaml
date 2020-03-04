@@ -3,5 +3,6 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - transdecoder=5.5.0
+  - bowtie=1.2.3
+  - samtools=1.9
 ...

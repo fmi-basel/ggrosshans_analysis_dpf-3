@@ -3,6 +3,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bowtie=1.2.2
+  - htseq=0.11.2
+  - pandas=1.0.1 
   - samtools=1.9
+  - seaborn=0.9
 ...
