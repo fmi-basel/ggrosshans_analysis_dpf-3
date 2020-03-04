@@ -1,0 +1,59 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+
+  # annotation
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf_canonical_and_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+  genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+
+  # rule params
+  adapter: "AACTGTAGGCACCATCAAT"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  kmer_len: ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
+  umi_length: 12
+
+  # samples
+  experiment_samples: {
+    Input_WAGO-1: [Input_WAGO-1_A, Input_WAGO-1_B, Input_WAGO-1_C],
+    Input_WAGO-1_dpf-3_null: [Input_WAGO-1_dpf-3_null_A, Input_WAGO-1_dpf-3_null_B, Input_WAGO-1_dpf-3_null_C],
+    Input_WAGO-1_P3G: [Input_WAGO-1_P3G_A, Input_WAGO-1_P3G_B, Input_WAGO-1_P3G_C],
+    Input_WAGO-3: [Input_WAGO-3_A, Input_WAGO-3_B, Input_WAGO-3_C],
+    Input_WAGO-3_dpf-3_null: [Input_WAGO-3_dpf-3_null_A, Input_WAGO-3_dpf-3_null_B, Input_WAGO-3_dpf-3_null_C],
+    Input_WAGO-4: [Input_WAGO-4_A, Input_WAGO-4_B, Input_WAGO-4_C],
+    Input_WAGO-4_dpf-3_null: [Input_WAGO-4_dpf-3_null_A, Input_WAGO-4_dpf-3_null_B, Input_WAGO-4_dpf-3_null_C],
+    IP_WAGO-1: [IP_WAGO-1_A, IP_WAGO-1_B, IP_WAGO-1_C],
+    IP_WAGO-1_dpf-3_null: [IP_WAGO-1_dpf-3_null_A, IP_WAGO-1_dpf-3_null_B, IP_WAGO-1_dpf-3_null_C],
+    IP_WAGO-1_P3G: [IP_WAGO-1_P3G_A, IP_WAGO-1_P3G_B, IP_WAGO-1_P3G_C],
+    IP_WAGO-3: [IP_WAGO-3_A, IP_WAGO-3_B, IP_WAGO-3_C],
+    IP_WAGO-3_dpf-3_null: [IP_WAGO-3_dpf-3_null_A, IP_WAGO-3_dpf-3_null_B, IP_WAGO-3_dpf-3_null_C],
+    IP_WAGO-4: [IP_WAGO-4_A, IP_WAGO-4_B, IP_WAGO-4_C],
+    IP_WAGO-4_dpf-3_null: [IP_WAGO-4_dpf-3_null_A, IP_WAGO-4_dpf-3_null_B, IP_WAGO-4_dpf-3_null_C],
+  }
+
+  # comparisons
+  combinations: [[Input_WAGO-1, IP_WAGO-1],
+                 [Input_WAGO-1_dpf-3_null, IP_WAGO-1_dpf-3_null],
+                 [Input_WAGO-1_P3G, IP_WAGO-1_P3G],
+                 [Input_WAGO-3, IP_WAGO-3],
+                 [Input_WAGO-3_dpf-3_null, IP_WAGO-3_dpf-3_null],
+                 [Input_WAGO-4, IP_WAGO-4],
+                 [Input_WAGO-4_dpf-3_null, IP_WAGO-4_dpf-3_null],
+                 [IP_WAGO-1_P3G, IP_WAGO-1],
+                 [IP_WAGO-1_dpf-3_null, IP_WAGO-1],
+                 [IP_WAGO-3_dpf-3_null, IP_WAGO-3],
+                 [IP_WAGO-4_dpf-3_null, IP_WAGO-4]
+                ]
+
+  combinations_focus: [[IP_WAGO-1_P3G, IP_WAGO-1],
+                       [IP_WAGO-1_dpf-3_null, IP_WAGO-1]]
+...

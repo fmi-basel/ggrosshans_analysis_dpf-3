@@ -68,7 +68,7 @@ def main():
             engine='python')
         condition1_df['counts'] = condition1_df['counts'].round()
         condition1_df.counts = condition1_df.counts.astype(int)
-        condition1_df.columns = [str(condition1) + str(counter)]
+        condition1_df.columns = [str(condition1) + "_" + str(counter)]
         conditions.append(condition1)
         if counts.empty:
             counts = condition1_df

@@ -1,0 +1,6 @@
+---
+channels:
+  - bioconda
+dependencies:
+  - fastp=0.20
+...
