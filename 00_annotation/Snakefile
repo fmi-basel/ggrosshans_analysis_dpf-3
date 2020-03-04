@@ -22,124 +22,7 @@ rule finish:
         salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
         repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
         repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv")
-
-################################################################################
-### Concatenate normal transcripts and transcripts annotated as
-### transposons transcripts
-### ALL (before filtering)
-################################################################################
-
-# rule concatenate_canonical_and_transposon_transcripts_all:
-#     input:
-#         gtf = config["gtf"],
-#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
-#     output:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf")
-#     log:
-#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts_all.log")
-#     shell:
-#         "(cat {input.gtf} {input.gtf_transposon_transcripts} > {output.gtf}) &> {log}"
-
-# ################################################################################
-# ### Filter small RNAs from annotation file
-# ################################################################################
-
-# rule filter_RNAs_from_gtf:
-#     input:
-#         gtf = config["gtf"]
-#     output:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf")
-#     log:
-#         os.path.join(config["local_log"], "filter_RNAs_from_gtf.log")
-#     shell:
-#         "(grep -P \"\texon\t\" {input.gtf} | \
-#         grep -P -v \"miRNA|piRNA|pre_miRNA|rRNA|rRNA_pseudogene|snRNA|snoRNA|tRNA|tRNA_pseudogene\" | \
-#         grep -P -v \"^MtDNA\" > {output.gtf}) &> {log}"
-
-# ################################################################################
-# ### Concatenate normal transcripts and transcripts annotated as
-# ### transposons transcripts
-# ################################################################################
-
-# rule concatenate_canonical_and_transposon_transcripts:
-#     input:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf"),
-#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
-#     output:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf")
-#     log:
-#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts.log")
-#     shell:
-#         "(cat \
-#         {input.gtf} \
-#         <(grep -P \"\texon\t\" {input.gtf_transposon_transcripts}) \
-#         > {output.gtf}) &> {log}"
-
-# ################################################################################
-# ### Extract canonical and transposon transcripts sequences
-# ################################################################################
-
-# rule extract_canonical_and_transposon_transcripts_sequences:
-#     input:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
-#         genome = config["genome"]
-#     output:
-#         seq = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
-#     conda:
-#         "envs/cufflinks.yaml"
-#     log:
-#         os.path.join(config["local_log"], "extract_canonical_and_transposon_transcripts_sequences.log")
-#     shell:
-#         "(gffread \
-#         {input.gtf} \
-#         -g {input.genome} \
-#         -w {output.seq} \
-#         ) &> {log}"
-
-# ################################################################################
-# ### Index canonical and transposon transcripts with salmon
-# ################################################################################
-
-# rule index_canonical_and_transposon_transcripts_salmon:
-#     input:
-#         transcripts = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
-#     output:
-#         index = directory(os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"))
-#     params:
-#         kmer = 21
-#     threads:    20
-#     conda:
-#         "envs/salmon.yaml"
-#     log:
-#         os.path.join(config["local_log"], "index_canonical_and_transposon_transcripts_salmon.log")
-#     shell:
-#         "(salmon index \
-#         -t {input.transcripts} \
-#         -i {output.index} \
-#         -k {params.kmer}) &> {log}"
-
-# ################################################################################
-# ### canonical and transposon transcripts transcript id to gene id
-# ################################################################################
-
-# rule transcript_id_to_gene_id_canonical_and_transposon_transcripts:
-#     input:
-#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
-#     output:
-#         transcriptid2geneid = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
-#     log:
-#         os.path.join(config["local_log"], "transcript_id_to_gene_id_canonical_and_transposon_transcripts.log")
-#     shell:
-#         "(cut -f 9 {input.gtf} | \
-#         cut -f 1-2 -d \";\" | \
-#         sed \'s/gene_id \"//\' | \
-#         sed \'s/\"; transcript_id \"/ /\' | \
-#         sed \'s/\\\"//\' | \
-#         sort -u | \
-#         awk \'{{print $2 \" \" $1}}\' \
-#         > {output.transcriptid2geneid} \
-#         ) &> {log}"
-        
+ 
 ################################################################################
 ### ucsc repeats to gtf and bed
 ################################################################################
@@ -375,3 +258,120 @@ rule create_repeats_filtered_mappings:
         df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
         df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
         df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
+
+################################################################################
+### Concatenate normal transcripts and transcripts annotated as
+### transposons transcripts
+### ALL (before filtering)
+################################################################################
+
+# rule concatenate_canonical_and_transposon_transcripts_all:
+#     input:
+#         gtf = config["gtf"],
+#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf")
+#     log:
+#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts_all.log")
+#     shell:
+#         "(cat {input.gtf} {input.gtf_transposon_transcripts} > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Filter small RNAs from annotation file
+# ################################################################################
+
+# rule filter_RNAs_from_gtf:
+#     input:
+#         gtf = config["gtf"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf")
+#     log:
+#         os.path.join(config["local_log"], "filter_RNAs_from_gtf.log")
+#     shell:
+#         "(grep -P \"\texon\t\" {input.gtf} | \
+#         grep -P -v \"miRNA|piRNA|pre_miRNA|rRNA|rRNA_pseudogene|snRNA|snoRNA|tRNA|tRNA_pseudogene\" | \
+#         grep -P -v \"^MtDNA\" > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Concatenate normal transcripts and transcripts annotated as
+# ### transposons transcripts
+# ################################################################################
+
+# rule concatenate_canonical_and_transposon_transcripts:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf"),
+#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf")
+#     log:
+#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts.log")
+#     shell:
+#         "(cat \
+#         {input.gtf} \
+#         <(grep -P \"\texon\t\" {input.gtf_transposon_transcripts}) \
+#         > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Extract canonical and transposon transcripts sequences
+# ################################################################################
+
+# rule extract_canonical_and_transposon_transcripts_sequences:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
+#         genome = config["genome"]
+#     output:
+#         seq = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
+#     conda:
+#         "envs/cufflinks.yaml"
+#     log:
+#         os.path.join(config["local_log"], "extract_canonical_and_transposon_transcripts_sequences.log")
+#     shell:
+#         "(gffread \
+#         {input.gtf} \
+#         -g {input.genome} \
+#         -w {output.seq} \
+#         ) &> {log}"
+
+# ################################################################################
+# ### Index canonical and transposon transcripts with salmon
+# ################################################################################
+
+# rule index_canonical_and_transposon_transcripts_salmon:
+#     input:
+#         transcripts = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
+#     output:
+#         index = directory(os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"))
+#     params:
+#         kmer = 21
+#     threads:    20
+#     conda:
+#         "envs/salmon.yaml"
+#     log:
+#         os.path.join(config["local_log"], "index_canonical_and_transposon_transcripts_salmon.log")
+#     shell:
+#         "(salmon index \
+#         -t {input.transcripts} \
+#         -i {output.index} \
+#         -k {params.kmer}) &> {log}"
+
+# ################################################################################
+# ### canonical and transposon transcripts transcript id to gene id
+# ################################################################################
+
+# rule transcript_id_to_gene_id_canonical_and_transposon_transcripts:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
+#     output:
+#         transcriptid2geneid = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
+#     log:
+#         os.path.join(config["local_log"], "transcript_id_to_gene_id_canonical_and_transposon_transcripts.log")
+#     shell:
+#         "(cut -f 9 {input.gtf} | \
+#         cut -f 1-2 -d \";\" | \
+#         sed \'s/gene_id \"//\' | \
+#         sed \'s/\"; transcript_id \"/ /\' | \
+#         sed \'s/\\\"//\' | \
+#         sort -u | \
+#         awk \'{{print $2 \" \" $1}}\' \
+#         > {output.transcriptid2geneid} \
+#         ) &> {log}"

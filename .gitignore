@@ -4,7 +4,7 @@
 22G_RNAs/
 comparisons/.ipynb_checkpoints/
 igv_sessions
-transposon_annotation
+.transposon_annotation
 screenshots/
 .snakemake
 results
