@@ -16,7 +16,6 @@ from functools import reduce
 
 def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
-    # return ['Input_WAGO-3_A']
     return list(design_table["sample"])
 
 def get_fq_1(wildcards):
