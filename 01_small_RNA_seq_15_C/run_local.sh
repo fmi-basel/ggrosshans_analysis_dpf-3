@@ -12,4 +12,5 @@ snakemake \
 -p \
 --local-cores 40 \
 --cores 40 \
---rerun-incomplete
+--rerun-incomplete \
+--log-service slack

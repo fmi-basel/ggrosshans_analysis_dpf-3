@@ -60,6 +60,33 @@ rule finish:
         steps_plot = os.path.join(config["output_dir"], "summary", "stats", "stats.pdf"),
         htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv"), sample=get_samples(), mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"])
 
+################################################################################
+################################################################################
+################################################################################
+### PART with annotations
+################################################################################
+################################################################################
+################################################################################
+
+rule filter_annotation_based_on_transcript_biotype:
+    input:
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
+    output:
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
+    params:
+        transcript_biotype = config["transcript_biotype"]
+    log:
+        os.path.join(config["local_log"], "filter_annotation_based_on_transcript_biotype.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --out {output.filtered_gtf} \
+        --transcript_biotype {params.transcript_biotype} \
+        --verbose) &> {log}"
 
 ################################################################################
 ################################################################################
@@ -547,7 +574,7 @@ rule htseq_count__alignment_sorted_filtered_unique_mappers:
     input:
         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
-        gtf = config["gtf"]
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
     output:
         htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv")
     params:

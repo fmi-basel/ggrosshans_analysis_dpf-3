@@ -17,15 +17,14 @@
   spike_ins_bowtie_index: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa.Rbowtie"
 
   # rule params
+  transcript_biotype: "protein_coding,mRNA"
+  kmer_len: ["9", "10", "11", "12", "13",]
+  umi_length: 8
   adapter: "AACTGTAGGCACCATCAAT"
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
-
-  kmer_len: ["9", "10", "11", "12", "13",]
-  umi_length: 8
-
-  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["forward", "reverse"]
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["yes", "reverse"]
 
   samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
 
