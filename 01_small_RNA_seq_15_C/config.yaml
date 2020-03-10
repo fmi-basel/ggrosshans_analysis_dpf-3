@@ -44,9 +44,11 @@
   }
 
   # comparisons
-  combinations: [[WT, Dpf_3_null],
+  combinations: [[WT, Dpf_3_null], 
                  [WT, Dpf_3_S784A],
                  [WT, mut_2],
+                 [WT, mut_7],
+                 [WT_other, alg_4_alg_3],
                  [WT_A_B_C, Dpf_3_null],
                  [WT_A_B_C, Dpf_3_S784A],
                  [WT_A_B_C, mut_2],
