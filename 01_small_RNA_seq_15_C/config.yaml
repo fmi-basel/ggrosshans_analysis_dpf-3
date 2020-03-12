@@ -6,19 +6,26 @@
   local_log: "logs/local_log"
   cluster_log: "logs/cluster_log"
   scripts: "../scripts"
+  envs: "../envs/"
 
   # annotation
   gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
-  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+  gene_ids: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
   spike_ins_fasta: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa"
   spike_ins_bowtie_index: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa.Rbowtie"
 
   # rule params
+  transcript_biotype: "protein_coding,mRNA"
+  kmer_len: ["9", "10", "11", "12", "13",]
+  umi_length: 8
   adapter: "AACTGTAGGCACCATCAAT"
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
+
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["yes", "reverse"]
 
   samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
 
@@ -38,9 +45,11 @@
   }
 
   # comparisons
-  combinations: [[WT, Dpf_3_null],
+  combinations: [[WT, Dpf_3_null], 
                  [WT, Dpf_3_S784A],
                  [WT, mut_2],
+                 [WT, mut_7],
+                 [WT_other, alg_4_alg_3],
                  [WT_A_B_C, Dpf_3_null],
                  [WT_A_B_C, Dpf_3_S784A],
                  [WT_A_B_C, mut_2],
