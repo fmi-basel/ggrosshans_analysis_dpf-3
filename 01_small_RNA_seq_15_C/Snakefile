@@ -50,7 +50,7 @@ rule finish:
                 "filter", 
                 "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{{mode}}__{experiment1}__{experiment2}", 
                 "DE_edgeR", 
-                "final_table.tsv").format(
+                "final_table_with_gene_info.tsv").format(
                     experiment1=experiment[0], 
                     experiment2=experiment[1]
                 ) for experiment in list(config["combinations"])],
@@ -781,6 +781,28 @@ rule edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_map
         --conditions {input.conditions} \
         --counts {input.counts} \
         --outfolder {params.output_dir}) &> {log}"
+
+# 6239  WBGene00000001  aap-1  Y110A7A.10  Live  protein_coding_gene
+rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_ids"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
 
 ################################################################################
 ### optional
