@@ -1,0 +1,18 @@
+.*
+Log.out
+Snakefile.remove.py
+TE
+TE/*
+TE_uniq
+TE_uniq/*
+dag.png
+logs
+logs*
+nohup.out
+results
+results*
+notebooks/.ipynb_checkpoints/
+notebooks/*.csv
+small RNA_15C wt vs mutants_equal width_bis.ai
+.archive
+test_DE_analysis/
