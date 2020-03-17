@@ -5,26 +5,28 @@
   local_log: "logs/local_log"
   cluster_log: "logs/cluster_log"
   scripts: "../scripts"
-  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
-  gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
+  envs: "../envs/"
+
+  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  gene_ids: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
-  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
-  # transposons based on ucsc
+
+  gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
   repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_transposons.tsv"
-  
+
+  gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
+
+  # rule params
+  transcript_biotype: "protein_coding,mRNA"
+  # transposons based on ucsc
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
-
-  # transposons based on Wormbase
-  gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
-  #transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
   sjdbOverhang: 50
-  # alfa_genome_index_stranded: "../22G_RNAs/results/annotation/alfa_genome_index.stranded.ALFA_index"
-  # alfa_genome_index_basename: "../22G_RNAs/results/annotation/alfa_genome_index"
-  
   adapter_fwd: "AGATCGGAAGAGCACACGTCTGAACTCCAGTCA"
   adapter_rev: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+  htseq_count_alignment_unique_mappers_mode: ["yes", "reverse"]
 
   # samples
   experiment_samples: {

@@ -14,9 +14,8 @@ import pandas as pd
 
 def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
+#    return ['wild_type_A']
     return list(design_table["sample"])
-
-    # return ["dpf_3_delta_38_Hrs_Rev6_REPLICATE_B"]
 
 def get_fq_1(wildcards):
     design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
@@ -32,52 +31,76 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
-        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv"),
-        salmon_TPM_genes_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv"),
-        outdir_fq1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
-        outdir_fq2 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_2"), sample=get_samples()),
-        mate_1_reads = expand(os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"), sample=get_samples()),
-        mate_2_reads = expand(os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"), sample=get_samples()),
-        bai = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"), sample=get_samples()),
-        pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
-        multiqc_dir = os.path.join(config["output_dir"], "summary", "qc"),
-        DE_salmon_quant_reads_with_transposon_annotation = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_with_transposons.tsv"),
-                                                                  zip,
-                                                                  experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
-        DE_salmon_quant_reads_transposons = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
-                                                                zip,
-                                                                experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                experiment2 = [i[1]  for i in list(config["combinations"])]),
-        DE_salmon_quant_reads_transposons_repName = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
-                                                                        zip,
-                                                                        experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                        experiment2 = [i[1]  for i in list(config["combinations"])]),
-        DE_salmon_quant_reads_transposons_repFamily = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
-                                                                          zip,
-                                                                          experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                          experiment2 = [i[1]  for i in list(config["combinations"])]),
-        DE_salmon_quant_reads_transposons_repClass = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
-                                                                         zip,
-                                                                         experiment1 = [i[0]  for i in list(config["combinations"])],
-                                                                         experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv"), sample=get_samples())
-        
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-### Quality statistics (Part 1)
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
+        # htseq_counts_table = expand(
+        #     os.path.join(config["output_dir"], 
+        #     "{sample}", 
+        #     "htseq", 
+        #     "forDE_alignment_unique_mappers_{mode}.tsv"),
+        #     sample=get_samples(),
+        #     mode=config["htseq_count_alignment_unique_mappers_mode"]),
+        de = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter", 
+                "DE_htseq_count_alignment_unique_mappers__{{mode}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table_with_gene_info.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                mode=config["htseq_count_alignment_unique_mappers_mode"]
+        )
+        #salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv"),
+        #salmon_TPM_genes_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv"),
+        #outdir_fq1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
+        #outdir_fq2 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_2"), sample=get_samples()),
+        #mate_1_reads = expand(os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"), sample=get_samples()),
+        #mate_2_reads = expand(os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"), sample=get_samples()),
+        # bai = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"), sample=get_samples()),
 
-################################################################################
-### Fastqc
-################################################################################
+        #pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
+        #multiqc_dir = os.path.join(config["output_dir"], "summary", "qc"),
+        #DE_salmon_quant_reads_with_transposon_annotation = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_with_transposons.tsv"),
+        #                                                          zip,
+        #                                                          experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                                          experiment2 = [i[1]  for i in list(config["combinations"])]),
+        #DE_salmon_quant_reads_transposons = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
+        #                                                        zip,
+        #                                                        experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                                        experiment2 = [i[1]  for i in list(config["combinations"])]),
+        #DE_salmon_quant_reads_transposons_repName = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
+        #                                                                zip,
+        #                                                                experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                                                experiment2 = [i[1]  for i in list(config["combinations"])]),
+        #DE_salmon_quant_reads_transposons_repFamily = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
+        #                                                                  zip,
+        #                                                                  experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                                                  experiment2 = [i[1]  for i in list(config["combinations"])]),
+        #DE_salmon_quant_reads_transposons_repClass = expand(os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
+        #                                                                 zip,
+        #                                                                 experiment1 = [i[0]  for i in list(config["combinations"])],
+        #                                                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
+        ## htseq_counts_table = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv"), sample=get_samples())
+        
+rule filter_annotation_based_on_transcript_biotype:
+    input:
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
+    output:
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
+    params:
+        transcript_biotype = config["transcript_biotype"]
+    log:
+        os.path.join(config["local_log"], "filter_annotation_based_on_transcript_biotype.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --out {output.filtered_gtf} \
+        --transcript_biotype {params.transcript_biotype} \
+        --verbose) &> {log}"
 
 rule fastqc_1:
     input:
@@ -85,7 +108,7 @@ rule fastqc_1:
     output:
         outdir = directory(os.path.join(config["output_dir"], "{sample}", "fastqc_1"))
     conda:
-        "envs/fastqc.yaml"
+        os.path.join(config["envs"], "fastqc_0.11.8.yaml")
     log:
         os.path.join(config["local_log"], "fastqc_{sample}.log")
     shell:
@@ -100,7 +123,7 @@ rule fastqc_2:
     output:
         outdir = directory(os.path.join(config["output_dir"], "{sample}", "fastqc_2"))
     conda:
-        "envs/fastqc.yaml"
+        os.path.join(config["envs"], "fastqc_0.11.8.yaml")
     log:
         os.path.join(config["local_log"], "fastqc_{sample}.log")
     shell:
@@ -108,10 +131,6 @@ rule fastqc_2:
         fastqc \
         --outdir {output.outdir} \
         {input.fq_1}) &> {log}"
-
-################################################################################
-### Trim 3p adapter
-################################################################################
 
 rule trim_3p_adapter_PE:
     input:
@@ -129,7 +148,8 @@ rule trim_3p_adapter_PE:
     log:
         os.path.join(config["local_log"], "trim_3p_adapter_PE_{sample}.log")
     threads:    6
-    conda:  "envs/cutadapt.yaml"
+    conda:
+        os.path.join(config["envs"], "cutadapt_2.3.yaml")
     shell:
         "(cutadapt \
         -a {params.adapter_fwd} \
@@ -143,10 +163,6 @@ rule trim_3p_adapter_PE:
         {input.mate_1_reads} \
         {input.mate_2_reads}) &> {log}"
 
-#################################################################################
-### Index genome STAR
-#################################################################################
-
 rule index_genome_STAR:
     input:
         genome = config["genome"],
@@ -158,7 +174,7 @@ rule index_genome_STAR:
         sjdbOverhang = config["sjdbOverhang"]
     threads:    40
     conda:
-        "envs/STAR.yaml"
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
     log:
         os.path.join(config["local_log"], "index_genome_STAR.log")
     shell:
@@ -171,10 +187,6 @@ rule index_genome_STAR:
         --runThreadN {threads} \
         --sjdbGTFfile {input.annotation}) &> {log}"
 
-#################################################################################
-### Align reads STAR
-#################################################################################
-
 rule align_reads_STAR_PE:
     input:
         index = os.path.join(config["output_dir"], "STAR_index"),
@@ -182,15 +194,15 @@ rule align_reads_STAR_PE:
         mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
         mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz")
     output:
-        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam"),
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam")
     params:
         outFileNamePrefix = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_"),
         outputdir = os.path.join(config["output_dir"], "{sample}", "STAR"),
     log:
-        os.path.join(config["local_log"],"align_reads_STAR_{sample}.log")
+        os.path.join(config["local_log"],"align_reads_STAR_PE_{sample}.log")
     threads:    20
     conda:
-        "envs/STAR.yaml"
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
     shell:
         "(mkdir -p {params.outputdir}; \
         STAR --runMode alignReads \
@@ -203,10 +215,6 @@ rule align_reads_STAR_PE:
         --outFileNamePrefix {params.outFileNamePrefix} \
         --outSAMtype BAM SortedByCoordinate) &> {log}"
 
-################################################################################
-### Index alignment file
-################################################################################
-
 rule samtools_index_genomic_alignment:
     input:
         bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam")
@@ -216,1150 +224,1265 @@ rule samtools_index_genomic_alignment:
         os.path.join(config["local_log"],"samtools_index_genomic_alignment_{sample}.log")
     threads:    1
     conda:
-        "envs/samtools.yaml"
+        os.path.join(config["envs"], "samtools_1.9.yaml")
     shell:
         "(samtools index {input.bam} > {output.bai}) &> {log}"
 
-################################################################################
-### Generate alfa genome index
-################################################################################
-
-rule alfa_genome_index:
+rule htseq_count_alignment_unique_mappers:
+    """
+    count reads in the opposite strand of genes
+    """
     input:
-        gtf = config["gtf"],
-        chr_len = config["genome_size"]
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"),
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
     output:
-        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
-        alfa_index_unstranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.unstranded.ALFA_index")
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_unique_mappers_{mode}.tsv")
     params:
-        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index")
+        mode = "{mode}"
     log:
-        os.path.join(config["local_log"], "alfa_genome_index.log")
-    threads:    8
-    conda:
-        "envs/alfa.yaml"
-    shell:
-        "(alfa \
-        -a {input.gtf} \
-        -g {params.genome_index_basename} \
-        --chr_len {input.chr_len} \
-        -p {threads}) &> {log}"
-
-################################################################################
-### Determine alignment statistics
-################################################################################
-
-rule alfa_aligment_statistics:
-    input:
-        bam = expand(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam"), sample1=get_samples()),
-        bai = expand(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam.bai"), sample1=get_samples()),
-        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
-    output:
-        pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
-    params:
-        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
-        output_prefix = "alfa_aligment_statistics",
-        output_dir = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics"),
-        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam ")) +str("{sample1}"), sample1=get_samples()),
-        strandness = "forward"
-    log:
-        os.path.join(config["local_log"],"alfa_aligment_statistics.log")
-    threads:    8
-    conda:
-        "envs/alfa.yaml"
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        alfa \
-        -g {params.genome_index_basename} \
-        --bam {params.bam_and_sample_name} \
-        -d 2 \
-        --keep_ambiguous \
-        --processors {threads} \
-        --strandness {params.strandness} \
-        --pdf {params.output_prefix} \
-        --temp_dir {params.output_dir} \
-        -o {params.output_dir}; \
-        ) &> {log}"
-
-################################################################################
-### Multiqc
-################################################################################
-
-rule multiqc:
-    input:
-        fastqc_1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
-        fastqc_2 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_2"), sample=get_samples()),
-        pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
-    output:
-        multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
-    log:
-        os.path.join(config["local_log"], "multiqc_fastqc.log")
-    conda:
-        "envs/multiqc.yaml"
-    shell:
-        "(multiqc --outdir {output.multiqc_dir} results logs) &> {log}"
-
-
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-### Create custom annotation
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-
-################################################################################
-### Concatenate normal transcripts and transcripts annotated as
-### transposons transcripts
-### ALL (before filtering)
-################################################################################
-
-rule concatenate_canonical_and_transposon_transcripts_all:
-    input:
-        gtf = config["gtf"],
-        gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf")
-    log:
-        os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts_all.log")
-    shell:
-        "(cat {input.gtf} {input.gtf_transposon_transcripts} > {output.gtf}) &> {log}"
-
-################################################################################
-### Filter small RNAs from annotation file
-################################################################################
-
-rule filter_RNAs_from_gtf:
-    input:
-        gtf = config["gtf"]
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf")
-    log:
-        os.path.join(config["local_log"], "filter_RNAs_from_gtf.log")
-    shell:
-        "(grep -P \"\texon\t\" {input.gtf} | \
-        grep -P -v \"miRNA|piRNA|pre_miRNA|rRNA|rRNA_pseudogene|snRNA|snoRNA|tRNA|tRNA_pseudogene\" | \
-        grep -P -v \"^MtDNA\" > {output.gtf}) &> {log}"
-
-################################################################################
-### Concatenate normal transcripts and transcripts annotated as
-### transposons transcripts
-################################################################################
-
-rule concatenate_canonical_and_transposon_transcripts:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf"),
-        gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf")
-    log:
-        os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts.log")
-    shell:
-        "(cat \
-        {input.gtf} \
-        <(grep -P \"\texon\t\" {input.gtf_transposon_transcripts}) \
-        > {output.gtf}) &> {log}"
-
-################################################################################
-### Extract canonical and transposon transcripts sequences
-################################################################################
-
-rule extract_canonical_and_transposon_transcripts_sequences:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
-        genome = config["genome"]
-    output:
-        seq = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
-    conda:
-        "envs/cufflinks.yaml"
-    log:
-        os.path.join(config["local_log"], "extract_canonical_and_transposon_transcripts_sequences.log")
-    shell:
-        "(gffread \
-        {input.gtf} \
-        -g {input.genome} \
-        -w {output.seq} \
-        ) &> {log}"
-
-################################################################################
-### Index canonical and transposon transcripts with salmon
-################################################################################
-
-rule index_canonical_and_transposon_transcripts_salmon:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"))
-    params:
-        kmer = 21
-    threads:    20
-    conda:
-        "envs/salmon.yaml"
-    log:
-        os.path.join(config["local_log"], "index_canonical_and_transposon_transcripts_salmon.log")
-    shell:
-        "(salmon index \
-        -t {input.transcripts} \
-        -i {output.index} \
-        -k {params.kmer}) &> {log}"
-
-################################################################################
-### canonical and transposon transcripts transcript id to gene id
-################################################################################
-
-rule transcript_id_to_gene_id_canonical_and_transposon_transcripts:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
-    output:
-        transcriptid2geneid = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
-    log:
-        os.path.join(config["local_log"], "transcript_id_to_gene_id_canonical_and_transposon_transcripts.log")
-    shell:
-        "(cut -f 9 {input.gtf} | \
-        cut -f 1-2 -d \";\" | \
-        sed \'s/gene_id \"//\' | \
-        sed \'s/\"; transcript_id \"/ /\' | \
-        sed \'s/\\\"//\' | \
-        sort -u | \
-        awk \'{{print $2 \" \" $1}}\' \
-        > {output.transcriptid2geneid} \
-        ) &> {log}"
-        
-################################################################################
-### ucsc repeats to gtf
-################################################################################
-
-rule ucsc_repeats_to_gtf:
-    input:
-        repeats =  config["repeats"],
-        script = os.path.join(config["scripts"], "ucsc_repeats_to_gtf.py")
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf"),
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
-    log:
-        os.path.join(config["local_log"], "ucsc_repeats_to_gtf.log")
-    shell:
-        "(python {input.script} \
-        --ucsc_repeats {input.repeats} \
-        --gtf {output.gtf} \
-        --bed {output.bed} \
-        --verbose) &> {log}"
-
-################################################################################
-### filter repeats gtf (also remove chr from beginning of the file)
-################################################################################
-
-rule filter_repeats_gtf:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf")
-    output:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
-    log:
-        os.path.join(config["local_log"], "filter_repeats_gtf.log")
-    shell:
-        "(grep -P -v 'repClass \"Simple_repeat\"|repClass \"Low_complexity\"|repClass \"rRNA\"\' \
-         {input.gtf} | \
-         sed 's/^chr//' > {output.gtf}) &> {log}"
-         
-################################################################################
-### filter repeats bed (also remove chr from beginning of the file)
-################################################################################
-
-rule filter_repeats_bed:
-    input:
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
-    output:
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
-    log:
-        os.path.join(config["local_log"], "filter_repeats_bed.log")
-    shell:
-        "(grep -P -v 'Simple_repeat|Low_complexity|rRNA' \
-         {input.bed} | \
-         sed 's/^chr//' > {output.bed}) &> {log}"
-         
-################################################################################
-### Create different categories of transposon mappings
-################################################################################
-
-rule create_transposon_mappings:
-    input:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
-    output:
-        transposon2repName = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
-        transposon2repClass = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
-        transposon2repFamily = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv")
-    log:
-        os.path.join(config["local_log"], "create_transposon_mappings.log")
-    shell:
-        "(cut -f 9 {input.gtf} \
-        | cut -f 1,2 -d \";\" \
-        | sed 's/; repName \"/\\t/' \
-        | sed 's/\"//' > {output.transposon2repName}; \
-        cut -f 9 {input.gtf} \
-        | cut -f 1,3 -d \";\" \
-        | sed 's/; repClass \"/\\t/' \
-        | sed 's/\"//' > {output.transposon2repClass}; \
-        cut -f 9 {input.gtf} \
-        | cut -f 1,4 -d \";\" \
-        | sed 's/; repFamily \"/\\t/' \
-        | sed 's/\"//' > {output.transposon2repFamily}; \
-        ) &>{log}"
-
-##################################################################################
-### Extract transposon sequences
-##################################################################################
-
-rule extract_transposon_sequences:
-    input:
-        annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf"),
-        genome = config["genome"]
-    output:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
-    conda:
-        "envs/cufflinks.yaml"
-    log:
-        os.path.join(config["local_log"],"extract_transposon_sequences.log")
-    shell:
-        "(gffread {input.annotation} \
-        -g {input.genome} \
-        -w {output.transcripts}) &> {log}"
-        
-################################################################################
-### Index transposon with salmon
-################################################################################
-
-rule index_transposons_salmon:
-    input:
-        transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
-    output:
-        index = directory(os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.salmon.idx"))
-    params:
-        kmer = 21
-    threads:    20
-    conda:
-        "envs/salmon.yaml"
-    log:
-        os.path.join(config["local_log"], "index_transposons_salmon.log")
-    shell:
-        "(salmon index \
-        -t {input.transcripts} \
-        -i {output.index} \
-        -k {params.kmer}) &> {log}"
-        
-        
-# ################################################################################
-# ### transposons to transposons family
-# ################################################################################
-
-# rule transposons_to_transposons_family:
-#     input:
-#         gff = config["gff_transposons"]
-#     output:
-#         transposons2transposons_family = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
-#     log:
-#         os.path.join(config["local_log"], "transposons_to_transposons_family.log")
-#     shell:
-#         "(cut -f 9 {input.gff} | \
-#         grep Family | grep Name | \
-#         cut -f 2,3 -d \";\" | \
-#         sed \'s/Name=//\' | \
-#         sed \'s/;Family=/ /\' | \
-#         sort -u \
-#         > {output.transposons2transposons_family} \
-#         ) &> {log}"
-        
-        
-# ################################################################################
-# ### gff 2 bed for transposons (Transposon Elements)
-# ################################################################################
-
-# rule gff_transposons_2_bed:
-#     input:
-#         gff = config["gff_transposons"],
-#         script = os.path.join(config["scripts"], "gff_transposons_2_bed.py")
-#     output:
-#         bed = os.path.join(config["output_dir"], "annotation", "c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.bed")
-#     log:
-#         os.path.join(config["local_log"], "gff_transposons_2_bed.log")
-#     conda:
-#         "envs/HTSeq_pandas_samtools_seaborn.yaml"        
-#     shell:
-#         "(python {input.script} \
-#         --gff {input.gff} \
-#         --bed {output.bed} \
-#         --verbose \
-#         ) &> {log}"
-
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ### Quantify and DE salmon quant reads
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-# ################################################################################
-
-################################################################################
-### Salmon quantify based on reads
-################################################################################
-
-rule salmon_quant_reads_PE:
-    input:
-        mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
-        mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"),
-        index = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"),
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
-    output:
-        salmon_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.sf"),
-        salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
-    params:
-        libType = "A",
-        salmon_dir = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads")
-    log:
-        os.path.join(config["local_log"], "salmon_quant_reads_PE_{sample}.log")
-    threads:    12
-    conda:
-        "envs/salmon.yaml"
-    shell:
-        "(salmon quant \
-        --libType {params.libType} \
-        --seqBias \
-        --validateMappings \
-        --threads {threads} \
-        --writeUnmappedNames \
-        --index {input.index} \
-        --geneMap {input.gtf} \
-        -1 {input.mate_1_reads} \
-        -2 {input.mate_2_reads} \
-        -o {params.salmon_dir}) &> {log}"
-
-################################################################################
-### Filter salmon and round reads
-################################################################################
-
-rule filter_salmon_quant_reads:
-    input:
-        salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.filtered.tsv")
-    log:
-        os.path.join(config["local_log"], "filter_salmon_quant_reads_{sample}.log")
-    run:
-        df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
-        df = df[["Name", "NumReads"]].copy()
-        df.columns = ["Name", "counts"]
-        df["counts"] = df["counts"].round()
-        df["counts"] = df["counts"].astype(int)
-        df.set_index("Name", inplace=True)
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-
-################################################################################
-### Collect all salmon reads
-################################################################################
-
-rule collect_salmon_reads:
-    input:
-        salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample=get_samples())
-    output:
-        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv")
-    params:
-        sample_name = expand("{sample}", sample=get_samples())
-    log:
-        os.path.join(config["local_log"], "collect_salmon_reads.log")
-    run:
-        df_merge = pd.DataFrame()
-        for i in range(len(input.salmon_filtered)): 
-            df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
-            df.columns = ["Name", params.sample_name[i]]
-            if df_merge.empty:
-                df_merge = df.copy()
-            else:
-                df_merge = pd.merge(df_merge, df, on="Name")
-        df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
-
-################################################################################
-### Filter salmon (TPM)
-################################################################################
-
-rule filter_salmon_TPM:
-    input:
-        salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv")
-    log:
-        os.path.join(config["local_log"], "filter_salmon_TPM_{sample}.log")
-    run:
-        df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
-        df = df[["Name", "TPM"]].copy()
-        df.set_index("Name", inplace=True)
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-
-################################################################################
-### Collect all salmon reads TPM
-################################################################################
-
-rule collect_salmon_reads_TPM:
-    input:
-        salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv"), sample=get_samples())
-    output:
-        salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv")
-    params:
-        sample_name = expand("{sample}", sample=get_samples())
-    log:
-        os.path.join(config["local_log"], "collect_salmon_reads_TPM.log")
-    run:
-        df_merge = pd.DataFrame()
-        for i in range(len(input.salmon_filtered)): 
-            df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
-            df.columns = ["Name", params.sample_name[i]]
-            if df_merge.empty:
-                df_merge = df.copy()
-            else:
-                df_merge = pd.merge(df_merge, df, on="Name")
-        df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
-
-################################################################################
-### Input preparation for edgeR (salmon quant reads)
-################################################################################
-
-rule edgeR_prepare_pairs_salmon_quant_reads:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads__{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-
-################################################################################
-### Differential expression between conditions (salmon)
-################################################################################
-
-rule edgeR_differential_salmon_quant_reads:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "conditions"),
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf"),
-        script = os.path.join(config["scripts"], "DE.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads"),
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads__{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --gtf {input.gtf} \
-        --outfolder {params.output_dir}) &> {log}"
-        
-################################################################################
-### edgeR_differential_salmon_quant_to_bed
-################################################################################
-
-rule edgeR_differential_salmon_quant_to_bed:
-    input:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv")
-    output:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.bed")
-    threads:    1
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_to_bed__{experiment1}__{experiment2}.log")
-    run:
-        de = pd.read_csv(input.table_all, header=0, sep="\t")
-        de["score"] = 0
-        df_bed = de[["chromosome", "start", "end", "id", "score", "strand"]].copy()
-        df_bed["start"] = df_bed["start"] - 1
-        df_bed.to_csv(output.table_all, header=None, index=False, sep="\t")
-        
-################################################################################
-### edgeR_differential_salmon_quant_annotate_transposons
-################################################################################
-
-rule edgeR_differential_salmon_quant_annotate_transposons:
-    input:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.bed"),
-        bed_transposons = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed")
-    output:
-        table_all_intersect = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_intersect.bed")
+        os.path.join(config["local_log"],"htseq_count_alignment_unique_mappers_{mode}_{sample}.log")
     threads:    1
     conda:
-        "envs/bedtools.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_annotate_transposons__{experiment1}__{experiment2}.log")
-    shell:
-        "(bedtools intersect \
-        -a {input.table_all} \
-        -b {input.bed_transposons} \
-        -wa \
-        -wb \
-        -s \
-        > {output.table_all_intersect} \
-        ) &> {log}"
-
-################################################################################
-### edgeR_differential_salmon_quant_annotate_transposons
-################################################################################
-
-rule edgeR_differential_salmon_quant_update_DE_table:
-    input:
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv"),
-        table_all_intersect = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_intersect.bed")
-    output:
-        final_table_with_transposons = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_with_transposons.tsv"),
-    threads:    1
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_update_DE_table__{experiment1}__{experiment2}.log")
-    run:
-        # read in file intersection file
-        table_all_intersect = pd.read_csv(input.table_all_intersect, header = None, sep="\t")
-        # add column names
-        table_all_intersect.columns = ["gene_chrom", "gene_start", "gene_end", "id", "gene_score", "gene_strand", "transposon_chrom", "transposon_start", "transposon_end", "transposon_info", "transposon_score", "transposon_strand"]
-        # convert starts to 1-based
-        table_all_intersect["gene_start"] = table_all_intersect["gene_start"] + 1
-        table_all_intersect["transposon_start"] = table_all_intersect["transposon_start"] + 1
-        # split transposon_info to 4 columns
-        table_all_intersect[["transposon_id", "transposon", "transposon_class", "transposon_family"]] =  table_all_intersect["transposon_info"].str.split("|", expand=True)
-        # select only useful columns
-        table_all_intersect = table_all_intersect[["id", "transposon_id", "transposon", "transposon_family", "transposon_class", "transposon_chrom", "transposon_start", "transposon_end", "transposon_strand"]]
-        
-        # read in DE table from edgeR
-        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
-        
-        # merge dataframes
-        df_all = pd.merge(table_all, table_all_intersect, on="id", how="left")
-        
-        # write file
-        df_all.to_csv(output.final_table_with_transposons, header=True, index=False, sep="\t")
-        
-        
-        
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-### Quantify and DE transposons
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-
-###############################################################################
-## Salmon quantify transposons based on reads
-###############################################################################
-
-rule salmon_quant_reads_transposons:
-    input:
-        mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
-        mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"),
-        index = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.salmon.idx")
-        # geneMap = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
-    output:
-        salmon_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
-        # salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.genes.sf"),
-    params:
-        libType = "A",
-        salmon_dir = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons")
-    log:
-        os.path.join(config["local_log"], "salmon_quant_reads_transposons_{sample}.log")
-    threads:    12
-    conda:
-        "envs/salmon.yaml"
-    shell:
-        "(salmon quant \
-        --libType {params.libType} \
-        --seqBias \
-        --validateMappings \
-        --threads {threads} \
-        --writeUnmappedNames \
-        --index {input.index} \
-        -1 {input.mate_1_reads} \
-        -2 {input.mate_2_reads} \
-        -o {params.salmon_dir}) &> {log}"
-        
-        # --geneMap {input.geneMap} \
-
-################################################################################
-### Sum up transposons at the gene
-### transposon2repName = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
-### transposon2repClass = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
-### transposon2repFamily = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv")
-################################################################################
-
-rule sum_salmon_transposon_to_repName_level:
-    input:
-        salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
-        geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repName.tsv"),
-    log:
-        os.path.join(config["local_log"], "sum_salmon_transposon_to_repName_level_{sample}.log")
-    run:
-        # read in salmon quant
-        df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
-        df_salmon = df_salmon[["Name", "NumReads"]].copy()
-        df_salmon.columns = ["Name", "counts"]
-        # read in geneMap
-        df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repName"])
-        # merge dataframes
-        df = pd.merge(df_geneMap, df_salmon, on="Name")
-        df = df[["repName", "counts"]].copy()
-        df = df.groupby("repName").sum()
-        df.reset_index(inplace=True)
-        df.columns = ["Name", "counts"]
-        # Make sure we have proper data
-        df["counts"] = df["counts"].round()
-        df["counts"] = df["counts"].astype(int)
-        df.set_index("Name", inplace=True)
-        # write output file
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-        
-rule sum_salmon_transposon_to_repClass_level:
-    input:
-        salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
-        geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"),
-    log:
-        os.path.join(config["local_log"], "sum_salmon_transposon_to_repClass_level_{sample}.log")
-    run:
-        # read in salmon quant
-        df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
-        df_salmon = df_salmon[["Name", "NumReads"]].copy()
-        df_salmon.columns = ["Name", "counts"]
-        # read in geneMap
-        df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repClass"])
-        # merge dataframes
-        df = pd.merge(df_geneMap, df_salmon, on="Name")
-        df = df[["repClass", "counts"]].copy()
-        df = df.groupby("repClass").sum()
-        df.reset_index(inplace=True)
-        df.columns = ["Name", "counts"]
-        # Make sure we have proper data
-        df["counts"] = df["counts"].round()
-        df["counts"] = df["counts"].astype(int)
-        df.set_index("Name", inplace=True)
-        # write output file
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-        
-rule sum_salmon_transposon_to_repFamily_level:
-    input:
-        salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
-        geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"),
-    log:
-        os.path.join(config["local_log"], "sum_salmon_transposon_to_repFamily_level_{sample}.log")
-    run:
-        # read in salmon quant
-        df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
-        df_salmon = df_salmon[["Name", "NumReads"]].copy()
-        df_salmon.columns = ["Name", "counts"]
-        # read in geneMap
-        df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repFamily"])
-        # merge dataframes
-        df = pd.merge(df_geneMap, df_salmon, on="Name")
-        df = df[["repFamily", "counts"]].copy()
-        df = df.groupby("repFamily").sum()
-        df.reset_index(inplace=True)
-        df.columns = ["Name", "counts"]
-        # Make sure we have proper data
-        df["counts"] = df["counts"].round()
-        df["counts"] = df["counts"].astype(int)
-        df.set_index("Name", inplace=True)
-        # write output file
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-
-################################################################################
-### Filter salmon transposons quantification and round reads
-################################################################################
-
-rule filter_salmon_quant_reads_transposons:
-    input:
-        salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
-    output:
-        salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"),
-    log:
-        os.path.join(config["local_log"], "filter_salmon_quant_reads_transposons_{sample}.log")
-    run:
-        df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
-        df = df[["Name", "NumReads"]].copy()
-        df.columns = ["Name", "counts"]
-        df["counts"] = df["counts"].round()
-        df["counts"] = df["counts"].astype(int)
-        df.set_index("Name", inplace=True)
-        df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
-        
-################################################################################
-### Input preparation for edgeR (salmon quant reads)
-################################################################################
-
-rule edgeR_prepare_pairs_salmon_quant_reads_transposons:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons__{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-  
-################################################################################
-### Differential expression between conditions (salmon)
-################################################################################
-
-rule edgeR_differential_salmon_quant_reads_transposons:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons"),
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons__{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --outfolder {params.output_dir}) &> {log}"
-        
-################################################################################
-### Input preparation for edgeR (salmon quant repName)
-################################################################################
-
-rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repName:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repName.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repName.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repName__{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-  
-################################################################################
-### Differential expression between conditions (salmon quant repName)
-################################################################################
-
-rule edgeR_differential_salmon_quant_reads_transposons_repName:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName"),
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repName__{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --outfolder {params.output_dir}) &> {log}"
-        
-        
-################################################################################
-### Input preparation for edgeR (salmon quant repClass)
-################################################################################
-
-rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repClass:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repClass__{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-  
-################################################################################
-### Differential expression between conditions (salmon quant repClass)
-################################################################################
-
-rule edgeR_differential_salmon_quant_reads_transposons_repClass:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass"),
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repClass__{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --outfolder {params.output_dir}) &> {log}"
-        
-################################################################################
-### Input preparation for edgeR (salmon quant repFamily)
-################################################################################
-
-rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repFamily:
-    input:
-        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
-        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
-        script = os.path.join(config["scripts"], "edger_prepare_files.py")
-    output:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "conditions")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily"),
-        condition1_name = "{experiment1}",
-        condition2_name = "{experiment2}"
-    log:
-        os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repFamily__{experiment1}__{experiment2}.log")
-    threads:    1
-	shell:
-		"(mkdir -p {params.output_dir}; \
-		python {input.script} \
-		--input_condition1 '{input.counts1}' \
-		--condition1_name {params.condition1_name} \
-		--input_condition2 '{input.counts2}' \
-		--condition2_name {params.condition2_name} \
-		--outfile_counts {output.counts} \
-		--outfile_conditions {output.conditions}) &> {log}"
-  
-################################################################################
-### Differential expression between conditions (salmon quant repFamily)
-################################################################################
-
-rule edgeR_differential_salmon_quant_reads_transposons_repFamily:
-    input:
-        counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "counts.table"),
-        conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "conditions"),
-        script = os.path.join(config["scripts"], "DE_simple.R")
-    output:
-        table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
-        table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table.tsv")
-    params:
-        output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily"),
-    conda:
-        "envs/DE.yaml"
-    log:
-        os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repFamily__{experiment1}__{experiment2}.log")
-    threads:    1
-    shell:
-        "(mkdir -p {params.output_dir}; \
-        Rscript {input.script} \
-        --conditions {input.conditions} \
-        --counts {input.counts} \
-        --outfolder {params.output_dir}) &> {log}"
-
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-### Quantify and DE transposons with multimappers
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-################################################################################
-
-################################################################################
-### bowtie align
-################################################################################
-
-rule bowtie_align:
-    input:
-        reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz"),
-        bowtie_index = config["bowtie_index"]
-    output:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
-    params:
-        index_prefix = config["bowtie_index"] + "/bowtie"
-    threads:   8
-    conda:
-        "envs/bowtie.yaml"
-    log:
-        os.path.join(config["local_log"],"bowtie_align_{sample}.log")
-    shell:
-        "(bowtie \
-        -v 1 \
-        --all \
-        --best \
-        --strata \
-        --sam \
-        --fr \
-        --threads {threads} \
-        {params.index_prefix} \
-        <(zcat {input.reads}) \
-        | samtools view -bS - \
-        | samtools sort -@ {threads} - > \
-        {output.bam}) &> {log}"
-
-################################################################################
-### Index alignment file
-################################################################################
-
-rule samtools_index_bowtie_align:
-    input:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
-    output:
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai")
-    log:
-        os.path.join(config["local_log"],"samtools_index_bowtie_align_{sample}.log")
-    threads:    1
-    conda:
-        "envs/samtools.yaml"
-    shell:
-        "(samtools index {input.bam} > {output.bai}) &> {log}"
-
-################################################################################
-### Filter small RNAs that we are not interested in
-### (rRNA rRNA_pseudogene tRNA tRNA_pseudogene)
-################################################################################
-
-rule filter_RNAs_bowtie_align:
-    input:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
-        gtf = config["gtf"],
-        script = os.path.join(config["scripts"], "filter_RNAs.py"),
-    output:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
-    params:
-        filter_RNAs = config["filter_RNAs"],
-        filter_chromosomes = config["filter_chromosomes"]
-    log:
-        os.path.join(config["local_log"],"filter_RNAs_bowtie_align_{sample}.log")
-    threads:    2
-    conda:
-        "envs/HTSeq_pandas_samtools_seaborn.yaml"
-    shell:
-        "(python {input.script} \
-        --gtf {input.gtf} \
-        --bam {input.bam} \
-        --filter_RNAs {params.filter_RNAs} \
-        --filter_chromosomes {params.filter_chromosomes} \
-        --bam_out {output.bam} \
-        --verbose; \
-        samtools index -@ {threads} {output.bam} {output.bai};)"
-
-################################################################################
-### HTSeq count genomic alignment
-################################################################################
-
-rule count_genomic_alignment_htseq_bowtie_align:
-    input:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
-    output:
-        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv")
-    log:
-        os.path.join(config["local_log"],"count_genomic_alignment_htseq_bowtie_align_{sample}.log")
-    threads:    1
-    conda:
-        "envs/HTSeq_pandas_samtools_seaborn.yaml"
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
     shell:
         "(htseq-count \
         --format bam \
-        --stranded yes \
+        --stranded {params.mode} \
         --type exon \
         --idattr gene_id \
-        --mode union \
+        --mode intersection-strict \
         --nonunique none \
         --secondary-alignments ignore \
         --supplementary-alignments ignore \
         {input.bam} \
         {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+rule for_DE_htseq_count_alignment_unique_mappers:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_unique_mappers_{mode}.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_alignment_unique_mappers_{mode}.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"], "for_DE_htseq_count_alignment_unique_mappers_{sample}_{mode}.log")
+    run:
+        df = pd.read_csv(input.counts, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_for_DE_htseq_count_alignment_unique_mappers:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(os.path.join(config["output_dir"], "{sample1}", "htseq", "forDE_alignment_unique_mappers_{mode}.tsv")), sample1=config["experiment_samples"][wildcards.experiment1], mode=wildcards.mode),
+        counts2 = lambda wildcards: expand(os.path.join(os.path.join(config["output_dir"], "{sample2}", "htseq", "forDE_alignment_unique_mappers_{mode}.tsv")), sample2=config["experiment_samples"][wildcards.experiment2], mode=wildcards.mode),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count_alignment_unique_mappers:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule add_gene_info_edgeR_differential_for_DE_htseq_count_alignment_unique_mappers:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_ids"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count_alignment_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+
+# ################################################################################
+# ### Generate alfa genome index
+# ################################################################################
+
+# rule alfa_genome_index:
+#     input:
+#         gtf = config["gtf"],
+#         chr_len = config["genome_size"]
+#     output:
+#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
+#         alfa_index_unstranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.unstranded.ALFA_index")
+#     params:
+#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index")
+#     log:
+#         os.path.join(config["local_log"], "alfa_genome_index.log")
+#     threads:    8
+#     conda:
+#         os.path.join(config["envs"], "alfa_1.1.1.yaml")
+#     shell:
+#         "(alfa \
+#         -a {input.gtf} \
+#         -g {params.genome_index_basename} \
+#         --chr_len {input.chr_len} \
+#         -p {threads}) &> {log}"
+
+# ################################################################################
+# ### Determine alignment statistics
+# ################################################################################
+
+# rule alfa_aligment_statistics:
+#     input:
+#         bam = expand(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam"), sample1=get_samples()),
+#         bai = expand(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam.bai"), sample1=get_samples()),
+#         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
+#     output:
+#         pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
+#     params:
+#         genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+#         output_prefix = "alfa_aligment_statistics",
+#         output_dir = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics"),
+#         bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "STAR", "{sample1}_Aligned.sortedByCoord.out.bam ")) +str("{sample1}"), sample1=get_samples()),
+#         strandness = "forward"
+#     log:
+#         os.path.join(config["local_log"],"alfa_aligment_statistics.log")
+#     threads:    8
+#     conda:
+#         os.path.join(config["envs"], "alfa_1.1.1.yaml")
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         alfa \
+#         -g {params.genome_index_basename} \
+#         --bam {params.bam_and_sample_name} \
+#         -d 2 \
+#         --keep_ambiguous \
+#         --processors {threads} \
+#         --strandness {params.strandness} \
+#         --pdf {params.output_prefix} \
+#         --temp_dir {params.output_dir} \
+#         -o {params.output_dir}; \
+#         ) &> {log}"
+
+# ################################################################################
+# ### Multiqc
+# ################################################################################
+
+# rule multiqc:
+#     input:
+#         fastqc_1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
+#         fastqc_2 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_2"), sample=get_samples()),
+#         pdf = os.path.join(config["output_dir"], "summary", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
+#     output:
+#         multiqc_dir = directory(os.path.join(config["output_dir"], "summary", "qc"))
+#     log:
+#         os.path.join(config["local_log"], "multiqc_fastqc.log")
+#     conda:
+#         os.path.join(config["envs"], "multiqc_1.8.yaml")
+#     shell:
+#         "(multiqc --outdir {output.multiqc_dir} results logs) &> {log}"
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ### Create custom annotation
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+# ################################################################################
+# ### Concatenate normal transcripts and transcripts annotated as
+# ### transposons transcripts
+# ### ALL (before filtering)
+# ################################################################################
+
+# rule concatenate_canonical_and_transposon_transcripts_all:
+#     input:
+#         gtf = config["gtf"],
+#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf")
+#     log:
+#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts_all.log")
+#     shell:
+#         "(cat {input.gtf} {input.gtf_transposon_transcripts} > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Filter small RNAs from annotation file
+# ################################################################################
+
+# rule filter_RNAs_from_gtf:
+#     input:
+#         gtf = config["gtf"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf")
+#     log:
+#         os.path.join(config["local_log"], "filter_RNAs_from_gtf.log")
+#     shell:
+#         "(grep -P \"\texon\t\" {input.gtf} | \
+#         grep -P -v \"miRNA|piRNA|pre_miRNA|rRNA|rRNA_pseudogene|snRNA|snoRNA|tRNA|tRNA_pseudogene\" | \
+#         grep -P -v \"^MtDNA\" > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Concatenate normal transcripts and transcripts annotated as
+# ### transposons transcripts
+# ################################################################################
+
+# rule concatenate_canonical_and_transposon_transcripts:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.gtf"),
+#         gtf_transposon_transcripts = config["gtf_transposon_transcripts"]
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf")
+#     log:
+#         os.path.join(config["local_log"], "concatenate_canonical_and_transposon_transcripts.log")
+#     shell:
+#         "(cat \
+#         {input.gtf} \
+#         <(grep -P \"\texon\t\" {input.gtf_transposon_transcripts}) \
+#         > {output.gtf}) &> {log}"
+
+# ################################################################################
+# ### Extract canonical and transposon transcripts sequences
+# ################################################################################
+
+# rule extract_canonical_and_transposon_transcripts_sequences:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
+#         genome = config["genome"]
+#     output:
+#         seq = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
+#     conda:
+#         "envs/cufflinks.yaml"
+#     log:
+#         os.path.join(config["local_log"], "extract_canonical_and_transposon_transcripts_sequences.log")
+#     shell:
+#         "(gffread \
+#         {input.gtf} \
+#         -g {input.genome} \
+#         -w {output.seq} \
+#         ) &> {log}"
+
+# ################################################################################
+# ### Index canonical and transposon transcripts with salmon
+# ################################################################################
+
+# rule index_canonical_and_transposon_transcripts_salmon:
+#     input:
+#         transcripts = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.fa")
+#     output:
+#         index = directory(os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"))
+#     params:
+#         kmer = 21
+#     threads:    20
+#     conda:
+#         "envs/salmon.yaml"
+#     log:
+#         os.path.join(config["local_log"], "index_canonical_and_transposon_transcripts_salmon.log")
+#     shell:
+#         "(salmon index \
+#         -t {input.transcripts} \
+#         -i {output.index} \
+#         -k {params.kmer}) &> {log}"
+
+# ################################################################################
+# ### canonical and transposon transcripts transcript id to gene id
+# ################################################################################
+
+# rule transcript_id_to_gene_id_canonical_and_transposon_transcripts:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.gtf"),
+#     output:
+#         transcriptid2geneid = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
+#     log:
+#         os.path.join(config["local_log"], "transcript_id_to_gene_id_canonical_and_transposon_transcripts.log")
+#     shell:
+#         "(cut -f 9 {input.gtf} | \
+#         cut -f 1-2 -d \";\" | \
+#         sed \'s/gene_id \"//\' | \
+#         sed \'s/\"; transcript_id \"/ /\' | \
+#         sed \'s/\\\"//\' | \
+#         sort -u | \
+#         awk \'{{print $2 \" \" $1}}\' \
+#         > {output.transcriptid2geneid} \
+#         ) &> {log}"
+        
+# ################################################################################
+# ### ucsc repeats to gtf
+# ################################################################################
+
+# rule ucsc_repeats_to_gtf:
+#     input:
+#         repeats =  config["repeats"],
+#         script = os.path.join(config["scripts"], "ucsc_repeats_to_gtf.py")
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf"),
+#         bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
+#     log:
+#         os.path.join(config["local_log"], "ucsc_repeats_to_gtf.log")
+#     shell:
+#         "(python {input.script} \
+#         --ucsc_repeats {input.repeats} \
+#         --gtf {output.gtf} \
+#         --bed {output.bed} \
+#         --verbose) &> {log}"
+
+# ################################################################################
+# ### filter repeats gtf (also remove chr from beginning of the file)
+# ################################################################################
+
+# rule filter_repeats_gtf:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf")
+#     output:
+#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+#     log:
+#         os.path.join(config["local_log"], "filter_repeats_gtf.log")
+#     shell:
+#         "(grep -P -v 'repClass \"Simple_repeat\"|repClass \"Low_complexity\"|repClass \"rRNA\"\' \
+#          {input.gtf} | \
+#          sed 's/^chr//' > {output.gtf}) &> {log}"
+         
+# ################################################################################
+# ### filter repeats bed (also remove chr from beginning of the file)
+# ################################################################################
+
+# rule filter_repeats_bed:
+#     input:
+#         bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.bed"),
+#     output:
+#         bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
+#     log:
+#         os.path.join(config["local_log"], "filter_repeats_bed.log")
+#     shell:
+#         "(grep -P -v 'Simple_repeat|Low_complexity|rRNA' \
+#          {input.bed} | \
+#          sed 's/^chr//' > {output.bed}) &> {log}"
+         
+# ################################################################################
+# ### Create different categories of transposon mappings
+# ################################################################################
+
+# rule create_transposon_mappings:
+#     input:
+#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+#     output:
+#         transposon2repName = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
+#         transposon2repClass = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
+#         transposon2repFamily = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv")
+#     log:
+#         os.path.join(config["local_log"], "create_transposon_mappings.log")
+#     shell:
+#         "(cut -f 9 {input.gtf} \
+#         | cut -f 1,2 -d \";\" \
+#         | sed 's/; repName \"/\\t/' \
+#         | sed 's/\"//' > {output.transposon2repName}; \
+#         cut -f 9 {input.gtf} \
+#         | cut -f 1,3 -d \";\" \
+#         | sed 's/; repClass \"/\\t/' \
+#         | sed 's/\"//' > {output.transposon2repClass}; \
+#         cut -f 9 {input.gtf} \
+#         | cut -f 1,4 -d \";\" \
+#         | sed 's/; repFamily \"/\\t/' \
+#         | sed 's/\"//' > {output.transposon2repFamily}; \
+#         ) &>{log}"
+
+# ##################################################################################
+# ### Extract transposon sequences
+# ##################################################################################
+
+# rule extract_transposon_sequences:
+#     input:
+#         annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf"),
+#         genome = config["genome"]
+#     output:
+#         transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
+#     conda:
+#         "envs/cufflinks.yaml"
+#     log:
+#         os.path.join(config["local_log"],"extract_transposon_sequences.log")
+#     shell:
+#         "(gffread {input.annotation} \
+#         -g {input.genome} \
+#         -w {output.transcripts}) &> {log}"
+        
+# ################################################################################
+# ### Index transposon with salmon
+# ################################################################################
+
+# rule index_transposons_salmon:
+#     input:
+#         transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
+#     output:
+#         index = directory(os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.salmon.idx"))
+#     params:
+#         kmer = 21
+#     threads:    20
+#     conda:
+#         "envs/salmon.yaml"
+#     log:
+#         os.path.join(config["local_log"], "index_transposons_salmon.log")
+#     shell:
+#         "(salmon index \
+#         -t {input.transcripts} \
+#         -i {output.index} \
+#         -k {params.kmer}) &> {log}"
+        
+        
+# # ################################################################################
+# # ### transposons to transposons family
+# # ################################################################################
+
+# # rule transposons_to_transposons_family:
+# #     input:
+# #         gff = config["gff_transposons"]
+# #     output:
+# #         transposons2transposons_family = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
+# #     log:
+# #         os.path.join(config["local_log"], "transposons_to_transposons_family.log")
+# #     shell:
+# #         "(cut -f 9 {input.gff} | \
+# #         grep Family | grep Name | \
+# #         cut -f 2,3 -d \";\" | \
+# #         sed \'s/Name=//\' | \
+# #         sed \'s/;Family=/ /\' | \
+# #         sort -u \
+# #         > {output.transposons2transposons_family} \
+# #         ) &> {log}"
+        
+        
+# # ################################################################################
+# # ### gff 2 bed for transposons (Transposon Elements)
+# # ################################################################################
+
+# # rule gff_transposons_2_bed:
+# #     input:
+# #         gff = config["gff_transposons"],
+# #         script = os.path.join(config["scripts"], "gff_transposons_2_bed.py")
+# #     output:
+# #         bed = os.path.join(config["output_dir"], "annotation", "c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.bed")
+# #     log:
+# #         os.path.join(config["local_log"], "gff_transposons_2_bed.log")
+# #     conda:
+# #         "envs/HTSeq_pandas_samtools_seaborn.yaml"        
+# #     shell:
+# #         "(python {input.script} \
+# #         --gff {input.gff} \
+# #         --bed {output.bed} \
+# #         --verbose \
+# #         ) &> {log}"
+
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+# # ### Quantify and DE salmon quant reads
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+# # ################################################################################
+
+# ################################################################################
+# ### Salmon quantify based on reads
+# ################################################################################
+
+# rule salmon_quant_reads_PE:
+#     input:
+#         mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
+#         mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"),
+#         index = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.salmon.idx"),
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.filtered.canonical_and_transposon_transcripts.transcriptid2geneid.txt")
+#     output:
+#         salmon_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.sf"),
+#         salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
+#     params:
+#         libType = "A",
+#         salmon_dir = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads")
+#     log:
+#         os.path.join(config["local_log"], "salmon_quant_reads_PE_{sample}.log")
+#     threads:    12
+#     conda:
+#         "envs/salmon.yaml"
+#     shell:
+#         "(salmon quant \
+#         --libType {params.libType} \
+#         --seqBias \
+#         --validateMappings \
+#         --threads {threads} \
+#         --writeUnmappedNames \
+#         --index {input.index} \
+#         --geneMap {input.gtf} \
+#         -1 {input.mate_1_reads} \
+#         -2 {input.mate_2_reads} \
+#         -o {params.salmon_dir}) &> {log}"
+
+# ################################################################################
+# ### Filter salmon and round reads
+# ################################################################################
+
+# rule filter_salmon_quant_reads:
+#     input:
+#         salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.filtered.tsv")
+#     log:
+#         os.path.join(config["local_log"], "filter_salmon_quant_reads_{sample}.log")
+#     run:
+#         df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
+#         df = df[["Name", "NumReads"]].copy()
+#         df.columns = ["Name", "counts"]
+#         df["counts"] = df["counts"].round()
+#         df["counts"] = df["counts"].astype(int)
+#         df.set_index("Name", inplace=True)
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+
+# ################################################################################
+# ### Collect all salmon reads
+# ################################################################################
+
+# rule collect_salmon_reads:
+#     input:
+#         salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample=get_samples())
+#     output:
+#         salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv")
+#     params:
+#         sample_name = expand("{sample}", sample=get_samples())
+#     log:
+#         os.path.join(config["local_log"], "collect_salmon_reads.log")
+#     run:
+#         df_merge = pd.DataFrame()
+#         for i in range(len(input.salmon_filtered)): 
+#             df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
+#             df.columns = ["Name", params.sample_name[i]]
+#             if df_merge.empty:
+#                 df_merge = df.copy()
+#             else:
+#                 df_merge = pd.merge(df_merge, df, on="Name")
+#         df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
+
+# ################################################################################
+# ### Filter salmon (TPM)
+# ################################################################################
+
+# rule filter_salmon_TPM:
+#     input:
+#         salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.sf"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv")
+#     log:
+#         os.path.join(config["local_log"], "filter_salmon_TPM_{sample}.log")
+#     run:
+#         df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
+#         df = df[["Name", "TPM"]].copy()
+#         df.set_index("Name", inplace=True)
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+
+# ################################################################################
+# ### Collect all salmon reads TPM
+# ################################################################################
+
+# rule collect_salmon_reads_TPM:
+#     input:
+#         salmon_filtered = expand(os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads", "quant.genes.TPM.tsv"), sample=get_samples())
+#     output:
+#         salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv")
+#     params:
+#         sample_name = expand("{sample}", sample=get_samples())
+#     log:
+#         os.path.join(config["local_log"], "collect_salmon_reads_TPM.log")
+#     run:
+#         df_merge = pd.DataFrame()
+#         for i in range(len(input.salmon_filtered)): 
+#             df = pd.read_csv(input.salmon_filtered[i], header=0, sep="\t")
+#             df.columns = ["Name", params.sample_name[i]]
+#             if df_merge.empty:
+#                 df_merge = df.copy()
+#             else:
+#                 df_merge = pd.merge(df_merge, df, on="Name")
+#         df_merge.to_csv(output.salmon_filtered_all, header=True, sep="\t", index=False)
+
+# ################################################################################
+# ### Input preparation for edgeR (salmon quant reads)
+# ################################################################################
+
+# rule edgeR_prepare_pairs_salmon_quant_reads:
+#     input:
+#         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+#         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads", "quant.genes.filtered.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+#         script = os.path.join(config["scripts"], "edger_prepare_files.py")
+#     output:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "conditions")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads"),
+#         condition1_name = "{experiment1}",
+#         condition2_name = "{experiment2}"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads__{experiment1}__{experiment2}.log")
+#     threads:    1
+# 	shell:
+# 		"(mkdir -p {params.output_dir}; \
+# 		python {input.script} \
+# 		--input_condition1 '{input.counts1}' \
+# 		--condition1_name {params.condition1_name} \
+# 		--input_condition2 '{input.counts2}' \
+# 		--condition2_name {params.condition2_name} \
+# 		--outfile_counts {output.counts} \
+# 		--outfile_conditions {output.conditions}) &> {log}"
+
+# ################################################################################
+# ### Differential expression between conditions (salmon)
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_reads:
+#     input:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads", "conditions"),
+#         gtf = os.path.join(config["output_dir"], "annotation", "annotation.canonical_and_transposon_transcripts.gtf"),
+#         script = os.path.join(config["scripts"], "DE.R")
+#     output:
+#         table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_FDR_low.tsv"),
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads"),
+#     conda:
+#         "envs/DE.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads__{experiment1}__{experiment2}.log")
+#     threads:    1
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         Rscript {input.script} \
+#         --conditions {input.conditions} \
+#         --counts {input.counts} \
+#         --gtf {input.gtf} \
+#         --outfolder {params.output_dir}) &> {log}"
+        
+# ################################################################################
+# ### edgeR_differential_salmon_quant_to_bed
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_to_bed:
+#     input:
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv")
+#     output:
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.bed")
+#     threads:    1
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_to_bed__{experiment1}__{experiment2}.log")
+#     run:
+#         de = pd.read_csv(input.table_all, header=0, sep="\t")
+#         de["score"] = 0
+#         df_bed = de[["chromosome", "start", "end", "id", "score", "strand"]].copy()
+#         df_bed["start"] = df_bed["start"] - 1
+#         df_bed.to_csv(output.table_all, header=None, index=False, sep="\t")
+        
+# ################################################################################
+# ### edgeR_differential_salmon_quant_annotate_transposons
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_annotate_transposons:
+#     input:
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.bed"),
+#         bed_transposons = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed")
+#     output:
+#         table_all_intersect = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_intersect.bed")
+#     threads:    1
+#     conda:
+#         "envs/bedtools.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_annotate_transposons__{experiment1}__{experiment2}.log")
+#     shell:
+#         "(bedtools intersect \
+#         -a {input.table_all} \
+#         -b {input.bed_transposons} \
+#         -wa \
+#         -wb \
+#         -s \
+#         > {output.table_all_intersect} \
+#         ) &> {log}"
+
+# ################################################################################
+# ### edgeR_differential_salmon_quant_annotate_transposons
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_update_DE_table:
+#     input:
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table.tsv"),
+#         table_all_intersect = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_intersect.bed")
+#     output:
+#         final_table_with_transposons = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads", "final_table_with_transposons.tsv"),
+#     threads:    1
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_update_DE_table__{experiment1}__{experiment2}.log")
+#     run:
+#         # read in file intersection file
+#         table_all_intersect = pd.read_csv(input.table_all_intersect, header = None, sep="\t")
+#         # add column names
+#         table_all_intersect.columns = ["gene_chrom", "gene_start", "gene_end", "id", "gene_score", "gene_strand", "transposon_chrom", "transposon_start", "transposon_end", "transposon_info", "transposon_score", "transposon_strand"]
+#         # convert starts to 1-based
+#         table_all_intersect["gene_start"] = table_all_intersect["gene_start"] + 1
+#         table_all_intersect["transposon_start"] = table_all_intersect["transposon_start"] + 1
+#         # split transposon_info to 4 columns
+#         table_all_intersect[["transposon_id", "transposon", "transposon_class", "transposon_family"]] =  table_all_intersect["transposon_info"].str.split("|", expand=True)
+#         # select only useful columns
+#         table_all_intersect = table_all_intersect[["id", "transposon_id", "transposon", "transposon_family", "transposon_class", "transposon_chrom", "transposon_start", "transposon_end", "transposon_strand"]]
+        
+#         # read in DE table from edgeR
+#         table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        
+#         # merge dataframes
+#         df_all = pd.merge(table_all, table_all_intersect, on="id", how="left")
+        
+#         # write file
+#         df_all.to_csv(output.final_table_with_transposons, header=True, index=False, sep="\t")
+        
+        
+        
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ### Quantify and DE transposons
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+# ###############################################################################
+# ## Salmon quantify transposons based on reads
+# ###############################################################################
+
+# rule salmon_quant_reads_transposons:
+#     input:
+#         mate_1_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate1.fastq.gz"),
+#         mate_2_reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter_mate2.fastq.gz"),
+#         index = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.salmon.idx")
+#         # geneMap = os.path.join(config["output_dir"], "annotation", "annotation.transposons_to_transposons_family.txt")
+#     output:
+#         salmon_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
+#         # salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.genes.sf"),
+#     params:
+#         libType = "A",
+#         salmon_dir = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons")
+#     log:
+#         os.path.join(config["local_log"], "salmon_quant_reads_transposons_{sample}.log")
+#     threads:    12
+#     conda:
+#         "envs/salmon.yaml"
+#     shell:
+#         "(salmon quant \
+#         --libType {params.libType} \
+#         --seqBias \
+#         --validateMappings \
+#         --threads {threads} \
+#         --writeUnmappedNames \
+#         --index {input.index} \
+#         -1 {input.mate_1_reads} \
+#         -2 {input.mate_2_reads} \
+#         -o {params.salmon_dir}) &> {log}"
+        
+#         # --geneMap {input.geneMap} \
+
+# ################################################################################
+# ### Sum up transposons at the gene
+# ### transposon2repName = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
+# ### transposon2repClass = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
+# ### transposon2repFamily = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv")
+# ################################################################################
+
+# rule sum_salmon_transposon_to_repName_level:
+#     input:
+#         salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
+#         geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repName.tsv"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repName.tsv"),
+#     log:
+#         os.path.join(config["local_log"], "sum_salmon_transposon_to_repName_level_{sample}.log")
+#     run:
+#         # read in salmon quant
+#         df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
+#         df_salmon = df_salmon[["Name", "NumReads"]].copy()
+#         df_salmon.columns = ["Name", "counts"]
+#         # read in geneMap
+#         df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repName"])
+#         # merge dataframes
+#         df = pd.merge(df_geneMap, df_salmon, on="Name")
+#         df = df[["repName", "counts"]].copy()
+#         df = df.groupby("repName").sum()
+#         df.reset_index(inplace=True)
+#         df.columns = ["Name", "counts"]
+#         # Make sure we have proper data
+#         df["counts"] = df["counts"].round()
+#         df["counts"] = df["counts"].astype(int)
+#         df.set_index("Name", inplace=True)
+#         # write output file
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+        
+# rule sum_salmon_transposon_to_repClass_level:
+#     input:
+#         salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
+#         geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repClass.tsv"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"),
+#     log:
+#         os.path.join(config["local_log"], "sum_salmon_transposon_to_repClass_level_{sample}.log")
+#     run:
+#         # read in salmon quant
+#         df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
+#         df_salmon = df_salmon[["Name", "NumReads"]].copy()
+#         df_salmon.columns = ["Name", "counts"]
+#         # read in geneMap
+#         df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repClass"])
+#         # merge dataframes
+#         df = pd.merge(df_geneMap, df_salmon, on="Name")
+#         df = df[["repClass", "counts"]].copy()
+#         df = df.groupby("repClass").sum()
+#         df.reset_index(inplace=True)
+#         df.columns = ["Name", "counts"]
+#         # Make sure we have proper data
+#         df["counts"] = df["counts"].round()
+#         df["counts"] = df["counts"].astype(int)
+#         df.set_index("Name", inplace=True)
+#         # write output file
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+        
+# rule sum_salmon_transposon_to_repFamily_level:
+#     input:
+#         salmon_quant = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
+#         geneMap = os.path.join(config["output_dir"], "annotation", "transposon2repFamily.tsv"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"),
+#     log:
+#         os.path.join(config["local_log"], "sum_salmon_transposon_to_repFamily_level_{sample}.log")
+#     run:
+#         # read in salmon quant
+#         df_salmon = pd.read_csv(input.salmon_quant, header=0, sep="\t")
+#         df_salmon = df_salmon[["Name", "NumReads"]].copy()
+#         df_salmon.columns = ["Name", "counts"]
+#         # read in geneMap
+#         df_geneMap = pd.read_csv(input.geneMap, header=None, sep="\t", names=["Name", "repFamily"])
+#         # merge dataframes
+#         df = pd.merge(df_geneMap, df_salmon, on="Name")
+#         df = df[["repFamily", "counts"]].copy()
+#         df = df.groupby("repFamily").sum()
+#         df.reset_index(inplace=True)
+#         df.columns = ["Name", "counts"]
+#         # Make sure we have proper data
+#         df["counts"] = df["counts"].round()
+#         df["counts"] = df["counts"].astype(int)
+#         df.set_index("Name", inplace=True)
+#         # write output file
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+
+# ################################################################################
+# ### Filter salmon transposons quantification and round reads
+# ################################################################################
+
+# rule filter_salmon_quant_reads_transposons:
+#     input:
+#         salmon_genes_out = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.sf"),
+#     output:
+#         salmon_filtered = os.path.join(config["output_dir"], "{sample}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"),
+#     log:
+#         os.path.join(config["local_log"], "filter_salmon_quant_reads_transposons_{sample}.log")
+#     run:
+#         df = pd.read_csv(input.salmon_genes_out, header=0, sep="\t")
+#         df = df[["Name", "NumReads"]].copy()
+#         df.columns = ["Name", "counts"]
+#         df["counts"] = df["counts"].round()
+#         df["counts"] = df["counts"].astype(int)
+#         df.set_index("Name", inplace=True)
+#         df.to_csv(output.salmon_filtered, header=True, sep="\t", index=True)
+        
+# ################################################################################
+# ### Input preparation for edgeR (salmon quant reads)
+# ################################################################################
+
+# rule edgeR_prepare_pairs_salmon_quant_reads_transposons:
+#     input:
+#         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+#         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.filtered.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+#         script = os.path.join(config["scripts"], "edger_prepare_files.py")
+#     output:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "conditions")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons"),
+#         condition1_name = "{experiment1}",
+#         condition2_name = "{experiment2}"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons__{experiment1}__{experiment2}.log")
+#     threads:    1
+# 	shell:
+# 		"(mkdir -p {params.output_dir}; \
+# 		python {input.script} \
+# 		--input_condition1 '{input.counts1}' \
+# 		--condition1_name {params.condition1_name} \
+# 		--input_condition2 '{input.counts2}' \
+# 		--condition2_name {params.condition2_name} \
+# 		--outfile_counts {output.counts} \
+# 		--outfile_conditions {output.conditions}) &> {log}"
+  
+# ################################################################################
+# ### Differential expression between conditions (salmon)
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_reads_transposons:
+#     input:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons", "conditions"),
+#         script = os.path.join(config["scripts"], "DE_simple.R")
+#     output:
+#         table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table_FDR_low.tsv"),
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons", "final_table.tsv")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons"),
+#     conda:
+#         "envs/DE.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons__{experiment1}__{experiment2}.log")
+#     threads:    1
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         Rscript {input.script} \
+#         --conditions {input.conditions} \
+#         --counts {input.counts} \
+#         --outfolder {params.output_dir}) &> {log}"
+        
+# ################################################################################
+# ### Input preparation for edgeR (salmon quant repName)
+# ################################################################################
+
+# rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repName:
+#     input:
+#         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repName.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+#         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repName.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+#         script = os.path.join(config["scripts"], "edger_prepare_files.py")
+#     output:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "conditions")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName"),
+#         condition1_name = "{experiment1}",
+#         condition2_name = "{experiment2}"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repName__{experiment1}__{experiment2}.log")
+#     threads:    1
+# 	shell:
+# 		"(mkdir -p {params.output_dir}; \
+# 		python {input.script} \
+# 		--input_condition1 '{input.counts1}' \
+# 		--condition1_name {params.condition1_name} \
+# 		--input_condition2 '{input.counts2}' \
+# 		--condition2_name {params.condition2_name} \
+# 		--outfile_counts {output.counts} \
+# 		--outfile_conditions {output.conditions}) &> {log}"
+  
+# ################################################################################
+# ### Differential expression between conditions (salmon quant repName)
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_reads_transposons_repName:
+#     input:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repName", "conditions"),
+#         script = os.path.join(config["scripts"], "DE_simple.R")
+#     output:
+#         table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table_FDR_low.tsv"),
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName", "final_table.tsv")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repName"),
+#     conda:
+#         "envs/DE.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repName__{experiment1}__{experiment2}.log")
+#     threads:    1
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         Rscript {input.script} \
+#         --conditions {input.conditions} \
+#         --counts {input.counts} \
+#         --outfolder {params.output_dir}) &> {log}"
+        
+        
+# ################################################################################
+# ### Input preparation for edgeR (salmon quant repClass)
+# ################################################################################
+
+# rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repClass:
+#     input:
+#         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+#         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repClass.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+#         script = os.path.join(config["scripts"], "edger_prepare_files.py")
+#     output:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "conditions")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass"),
+#         condition1_name = "{experiment1}",
+#         condition2_name = "{experiment2}"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repClass__{experiment1}__{experiment2}.log")
+#     threads:    1
+# 	shell:
+# 		"(mkdir -p {params.output_dir}; \
+# 		python {input.script} \
+# 		--input_condition1 '{input.counts1}' \
+# 		--condition1_name {params.condition1_name} \
+# 		--input_condition2 '{input.counts2}' \
+# 		--condition2_name {params.condition2_name} \
+# 		--outfile_counts {output.counts} \
+# 		--outfile_conditions {output.conditions}) &> {log}"
+  
+# ################################################################################
+# ### Differential expression between conditions (salmon quant repClass)
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_reads_transposons_repClass:
+#     input:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repClass", "conditions"),
+#         script = os.path.join(config["scripts"], "DE_simple.R")
+#     output:
+#         table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table_FDR_low.tsv"),
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass", "final_table.tsv")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repClass"),
+#     conda:
+#         "envs/DE.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repClass__{experiment1}__{experiment2}.log")
+#     threads:    1
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         Rscript {input.script} \
+#         --conditions {input.conditions} \
+#         --counts {input.counts} \
+#         --outfolder {params.output_dir}) &> {log}"
+        
+# ################################################################################
+# ### Input preparation for edgeR (salmon quant repFamily)
+# ################################################################################
+
+# rule edgeR_prepare_pairs_salmon_quant_reads_transposons_repFamily:
+#     input:
+#         counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+#         counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "salmon", "quant_reads_transposons", "quant.repFamily.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+#         script = os.path.join(config["scripts"], "edger_prepare_files.py")
+#     output:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "conditions")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily"),
+#         condition1_name = "{experiment1}",
+#         condition2_name = "{experiment2}"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_prepare_pairs_salmon_quant_reads_transposons_repFamily__{experiment1}__{experiment2}.log")
+#     threads:    1
+# 	shell:
+# 		"(mkdir -p {params.output_dir}; \
+# 		python {input.script} \
+# 		--input_condition1 '{input.counts1}' \
+# 		--condition1_name {params.condition1_name} \
+# 		--input_condition2 '{input.counts2}' \
+# 		--condition2_name {params.condition2_name} \
+# 		--outfile_counts {output.counts} \
+# 		--outfile_conditions {output.conditions}) &> {log}"
+  
+# ################################################################################
+# ### Differential expression between conditions (salmon quant repFamily)
+# ################################################################################
+
+# rule edgeR_differential_salmon_quant_reads_transposons_repFamily:
+#     input:
+#         counts = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "counts.table"),
+#         conditions = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "prepare_pairs", "salmon_quant_reads_transposons_repFamily", "conditions"),
+#         script = os.path.join(config["scripts"], "DE_simple.R")
+#     output:
+#         table_FDR_low_tsv = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table_FDR_low.tsv"),
+#         table_all = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily", "final_table.tsv")
+#     params:
+#         output_dir = os.path.join(config["output_dir"], "DE__{experiment1}__{experiment2}", "DE_edgeR", "salmon_quant_reads_transposons_repFamily"),
+#     conda:
+#         "envs/DE.yaml"
+#     log:
+#         os.path.join(config["local_log"], "edgeR_differential_salmon_quant_reads_transposons_repFamily__{experiment1}__{experiment2}.log")
+#     threads:    1
+#     shell:
+#         "(mkdir -p {params.output_dir}; \
+#         Rscript {input.script} \
+#         --conditions {input.conditions} \
+#         --counts {input.counts} \
+#         --outfolder {params.output_dir}) &> {log}"
+
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ### Quantify and DE transposons with multimappers
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+# ################################################################################
+
+# ################################################################################
+# ### bowtie align
+# ################################################################################
+
+# rule bowtie_align:
+#     input:
+#         reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz"),
+#         bowtie_index = config["bowtie_index"]
+#     output:
+#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
+#     params:
+#         index_prefix = config["bowtie_index"] + "/bowtie"
+#     threads:   8
+#     conda:
+#         "envs/bowtie.yaml"
+#     log:
+#         os.path.join(config["local_log"],"bowtie_align_{sample}.log")
+#     shell:
+#         "(bowtie \
+#         -v 1 \
+#         --all \
+#         --best \
+#         --strata \
+#         --sam \
+#         --fr \
+#         --threads {threads} \
+#         {params.index_prefix} \
+#         <(zcat {input.reads}) \
+#         | samtools view -bS - \
+#         | samtools sort -@ {threads} - > \
+#         {output.bam}) &> {log}"
+
+# ################################################################################
+# ### Index alignment file
+# ################################################################################
+
+# rule samtools_index_bowtie_align:
+#     input:
+#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam")
+#     output:
+#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai")
+#     log:
+#         os.path.join(config["local_log"],"samtools_index_bowtie_align_{sample}.log")
+#     threads:    1
+#     conda:
+#         "envs/samtools.yaml"
+#     shell:
+#         "(samtools index {input.bam} > {output.bai}) &> {log}"
+
+# ################################################################################
+# ### Filter small RNAs that we are not interested in
+# ### (rRNA rRNA_pseudogene tRNA tRNA_pseudogene)
+# ################################################################################
+
+# rule filter_RNAs_bowtie_align:
+#     input:
+#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
+#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
+#         gtf = config["gtf"],
+#         script = os.path.join(config["scripts"], "filter_RNAs.py"),
+#     output:
+#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
+#     params:
+#         filter_RNAs = config["filter_RNAs"],
+#         filter_chromosomes = config["filter_chromosomes"]
+#     log:
+#         os.path.join(config["local_log"],"filter_RNAs_bowtie_align_{sample}.log")
+#     threads:    2
+#     conda:
+#         "envs/HTSeq_pandas_samtools_seaborn.yaml"
+#     shell:
+#         "(python {input.script} \
+#         --gtf {input.gtf} \
+#         --bam {input.bam} \
+#         --filter_RNAs {params.filter_RNAs} \
+#         --filter_chromosomes {params.filter_chromosomes} \
+#         --bam_out {output.bam} \
+#         --verbose; \
+#         samtools index -@ {threads} {output.bam} {output.bai};)"
+
+# ################################################################################
+# ### HTSeq count genomic alignment
+# ################################################################################
+
+# rule count_genomic_alignment_htseq_bowtie_align:
+#     input:
+#         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+#         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+#         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+#     output:
+#         htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "count_genomic_alignment_htseq_unique_mappers.tsv")
+#     log:
+#         os.path.join(config["local_log"],"count_genomic_alignment_htseq_bowtie_align_{sample}.log")
+#     threads:    1
+#     conda:
+#         "envs/HTSeq_pandas_samtools_seaborn.yaml"
+#     shell:
+#         "(htseq-count \
+#         --format bam \
+#         --stranded yes \
+#         --type exon \
+#         --idattr gene_id \
+#         --mode union \
+#         --nonunique none \
+#         --secondary-alignments ignore \
+#         --supplementary-alignments ignore \
+#         {input.bam} \
+#         {input.gtf} > {output.htseq_counts_table}) 2> {log}"
