@@ -14,7 +14,7 @@ import pandas as pd
 
 def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
-#    return ['wild_type_A']
+    # return ['wild_type_A']
     return list(design_table["sample"])
 
 def get_fq_1(wildcards):
@@ -31,6 +31,7 @@ def get_fq_2(wildcards):
 
 rule finish:
     input:
+        bw = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.bw"), sample=get_samples())
         # htseq_counts_table = expand(
         #     os.path.join(config["output_dir"], 
         #     "{sample}", 
@@ -38,18 +39,18 @@ rule finish:
         #     "forDE_alignment_unique_mappers_{mode}.tsv"),
         #     sample=get_samples(),
         #     mode=config["htseq_count_alignment_unique_mappers_mode"]),
-        de = expand(
-            [os.path.join(
-                config["output_dir"], 
-                "filter", 
-                "DE_htseq_count_alignment_unique_mappers__{{mode}}__{experiment1}__{experiment2}", 
-                "DE_edgeR", 
-                "final_table_with_gene_info.tsv").format(
-                    experiment1=experiment[0], 
-                    experiment2=experiment[1]
-                ) for experiment in list(config["combinations"])],
-                mode=config["htseq_count_alignment_unique_mappers_mode"]
-        )
+        # de = expand(
+        #     [os.path.join(
+        #         config["output_dir"], 
+        #         "filter", 
+        #         "DE_htseq_count_alignment_unique_mappers__{{mode}}__{experiment1}__{experiment2}", 
+        #         "DE_edgeR", 
+        #         "final_table_with_gene_info.tsv").format(
+        #             experiment1=experiment[0], 
+        #             experiment2=experiment[1]
+        #         ) for experiment in list(config["combinations"])],
+        #         mode=config["htseq_count_alignment_unique_mappers_mode"]
+        # ),
         #salmon_filtered_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.filtered.tsv"),
         #salmon_TPM_genes_all = os.path.join(config["output_dir"], "salmon", "quant_reads", "quant.genes.TPM.tsv"),
         #outdir_fq1 = expand(os.path.join(config["output_dir"], "{sample}", "fastqc_1"), sample=get_samples()),
@@ -343,10 +344,56 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count_alignment_unique_mapper
         table_all = table_all.merge(gene_info, how="left", on="id")
         table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
 
+rule export_normalized_graph:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"),
+    output:
+        wig_Unique_str1_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.wig"),
+        wig_Unique_str2_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.wig"),
+        wig_UniqueMultiple_str1_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.wig"),
+        wig_UniqueMultiple_str2_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.wig")
+    params:
+        outFileNamePrefix = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_"),
+        outputdir = os.path.join(config["output_dir"], "{sample}", "STAR")
+    conda:
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
+    log:
+        os.path.join(config["local_log"],"export_normalized_graph_{sample}.log")
+    threads:    8
+    shell:
+        "(STAR \
+        --runMode inputAlignmentsFromBAM \
+        --runThreadN {threads} \
+        --inputBAMfile {input.bam} \
+        --outWigType wiggle \
+        --outWigStrand Stranded \
+        --outWigNorm RPM \
+        --outFileNamePrefix {params.outFileNamePrefix}) &> {log}"
 
-# ################################################################################
-# ### Generate alfa genome index
-# ################################################################################
+rule wig2bigwg:
+    input:
+        wig_Unique_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.wig"),
+        wig_Unique_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.wig"),
+        wig_UniqueMultiple_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.wig"),
+        wig_UniqueMultiple_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.wig"),
+        genome_size = config["genome_size"]
+    output:
+        bigwig_Unique_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.bw"),
+        bigwig_Unique_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.bw"),
+        bigwig_UniqueMultiple_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.bw"),
+        bigwig_UniqueMultiple_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.bw"),
+    conda:
+        os.path.join(config["envs"], "ucsc_wigtobigwig_377.yaml")
+    log:
+        os.path.join(config["local_log"],"wig2bigwg_{sample}.log")
+    shell:
+        "(wigToBigWig {input.wig_Unique_str1} {input.genome_size} {output.bigwig_Unique_str1}; \
+        wigToBigWig {input.wig_Unique_str2} {input.genome_size} {output.bigwig_Unique_str2}; \
+        wigToBigWig {input.wig_UniqueMultiple_str1} {input.genome_size} {output.bigwig_UniqueMultiple_str1}; \
+        wigToBigWig {input.wig_UniqueMultiple_str2} {input.genome_size} {output.bigwig_UniqueMultiple_str2}; \
+        ) &> {log}"
+        
 
 # rule alfa_genome_index:
 #     input:
