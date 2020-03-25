@@ -14,24 +14,43 @@ import pandas as pd
 
 rule finish:
     input:
-        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf"),
-        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
-        bowtie_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
-        salmon_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"),
-        bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
-        salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
-        repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
-        repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv"),
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.sorted.gtf"),
+        tsv = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.tsv"),
         star_index = expand(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"), sjdbOverhang=config["sjdbOverhang"]),
-        bowtie_index = os.path.join(config["output_dir"], "indexes", "genome", "bowtie")
- 
-################################################################################
-### ucsc repeats to gtf and bed
-################################################################################
+        bowtie_index = os.path.join(config["output_dir"], "indexes", "genome", "bowtie"),
+        # bowtie_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
+        # salmon_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"),
+        # bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
+        # salmon_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "salmon.idx"),
+        # repeat2repFamily = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.repeat2repFamily.tsv"),
+        # repeat2repFamily_filtered = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.repeat2repFamily.tsv"),
+        # bed_transposons_wormbase =  os.path.join(config["output_dir"], "annotation", "transposons.bed")
 
+rule keep_exons_gtf_canonical_geneset_wormbase:
+    input:
+        gtf = config["gtf_canonical_geneset_wormbase"]
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.gtf")
+    log:
+        os.path.join(config["local_log"], "keep_exons_gtf_canonical_geneset_wormbase.log")
+    shell:
+        "(grep -P '\texon\t' {input.gtf} > {output.gtf}) &> {log}"
+
+rule ucsc_repeats_fix_MtDNA:
+    input:
+        ucsc_repeats =  config["ucsc_repeats"],
+    output:
+        ucsc_repeats = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.tsv")
+    log:
+        os.path.join(config["local_log"], "ucsc_repeats_fix_MtDNA.log")
+    shell:
+        "(sed 's/\tchrM\t/\tchrMtDNA\t/' \
+        {input.ucsc_repeats} \
+        > {output.ucsc_repeats}) &> {log}"
+ 
 rule ucsc_repeats_to_gtf_and_bed:
     input:
-        repeats =  config["repeats"],
+        ucsc_repeats = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.tsv"),
         script = os.path.join(config["scripts"], "ucsc_repeats_to_gtf_gff_bed.py")
     output:
         gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gtf"),
@@ -41,16 +60,12 @@ rule ucsc_repeats_to_gtf_and_bed:
         os.path.join(config["local_log"], "ucsc_repeats_to_gtf_and_bed.log")
     shell:
         "(python {input.script} \
-        --ucsc_repeats {input.repeats} \
+        --ucsc_repeats {input.ucsc_repeats} \
         --gtf {output.gtf} \
         --gff {output.gff} \
         --bed {output.bed} \
         --filter-chr \
         --verbose) &> {log}"
-
-################################################################################
-### filter repeats gtf
-################################################################################
 
 rule filter_repeats_gtf:
     input:
@@ -63,10 +78,6 @@ rule filter_repeats_gtf:
         "(grep -P -v 'repClass \"Simple_repeat\"|repClass \"Low_complexity\"|repClass \"rRNA\"\' \
          {input.gtf} > {output.gtf}) &> {log}"
 
-################################################################################
-### filter repeats gff
-################################################################################
-
 rule filter_repeats_gff:
     input:
         gff = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff")
@@ -77,10 +88,6 @@ rule filter_repeats_gff:
     shell:
         "(grep -P -v 'repClass=Simple_repeat|repClass=Low_complexity|repClass=rRNA\' \
          {input.gff} > {output.gff}) &> {log}"
-         
-################################################################################
-### filter repeats bed (also remove chr from beginning of the file)
-################################################################################
 
 rule filter_repeats_bed:
     input:
@@ -93,9 +100,71 @@ rule filter_repeats_bed:
         "(grep -P -v 'Simple_repeat|Low_complexity|rRNA' \
          {input.bed} > {output.bed}) &> {log}"
 
-##################################################################################
-### Extract repeat sequences
-##################################################################################
+rule filtered_gtf_repeats_to_tsv:
+    input:
+        gtf = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf"),
+        script = os.path.join(config["scripts"], "gtf_repeats_to_tsv.py")
+    output:
+        tsv = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.tsv")
+    log:
+        os.path.join(config["local_log"],"filtered_gtf_repeats_to_tsv.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --tsv {output.tsv} \
+        --verbose \
+        ) &> {log}"
+
+rule keep_non_overlapping_exons_with_repeats:
+    input:
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.gtf"),
+        bed = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.bed"),
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap.gtf")
+    log:
+        os.path.join(config["local_log"], "keep_non_overlapping_exons_with_repeats.log")
+    conda:
+        os.path.join(config["envs"], "bedtools_2.28.0.yaml")
+    shell:
+        "(bedtools intersect \
+        -a {input.gtf} \
+        -b {input.bed} \
+        -s \
+        -v \
+        -wa \
+        > {output.gtf}) &> {log}"
+
+rule merge_canonical_annotation_non_overlapping_exons_and_repeats:
+    input:
+        gtf_canonical_no_repeat_overlap = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap.gtf"),
+        gtf_repeats = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.gtf")
+    output:
+        gtf_canonical_and_repeats = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"),
+    log:
+        os.path.join(config["local_log"], "merge_canonical_annotation_non_overlapping_exons_and_repeats.log")
+    shell:
+        "(cat \
+        {input.gtf_canonical_no_repeat_overlap} \
+        {input.gtf_repeats} \
+        > {output.gtf_canonical_and_repeats}) &> {log}"
+
+rule prepare_merged_annotation_for_igv:
+    input:
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"), 
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.sorted.gtf"),
+        idx = os.path.join(config["output_dir"], "annotation", "canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.sorted.gtf.idx"),
+    log:
+        os.path.join(config["local_log"], "prepare_merged_annotation_for_igv.log")
+    conda:
+        os.path.join(config["envs"], "igvtools_2.3.93.yaml")
+    shell:
+        "(igvtools sort {input.gtf} {output.gtf}; \
+        igvtools index {output.gtf};) &> {log}"
+
 
 rule extract_repeat_sequences_filtered:
     input:
@@ -112,10 +181,6 @@ rule extract_repeat_sequences_filtered:
         -g {input.genome} \
         -w {output.transcripts}) &> {log}"
 
-#################################################################################
-### Index repeats bowtie
-#################################################################################
-
 rule index_repeats_filtered_bowtie:
     input:
         transcripts = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.fa")
@@ -131,10 +196,6 @@ rule index_repeats_filtered_bowtie:
     shell:
         "(mkdir -p {output.index}; \
         bowtie-build {input.transcripts} {params.prefix}) &> {log}"
-
-################################################################################
-### Index transposon with salmon
-################################################################################
 
 rule index_repeats_filtered_salmon:
     input:
@@ -154,10 +215,6 @@ rule index_repeats_filtered_salmon:
         -i {output.index} \
         -k {params.kmer}) &> {log}"
 
-##################################################################################
-### Extract repeat sequences
-##################################################################################
-
 rule extract_repeat_sequences:
     input:
         annotation = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.gff"),
@@ -172,10 +229,6 @@ rule extract_repeat_sequences:
         "(gffread {input.annotation} \
         -g {input.genome} \
         -w {output.transcripts}) &> {log}"
-
-#################################################################################
-### Index repeats bowtie
-#################################################################################
 
 rule index_repeats_bowtie:
     input:
@@ -192,10 +245,6 @@ rule index_repeats_bowtie:
     shell:
         "(mkdir -p {output.index}; \
         bowtie-build {input.transcripts} {params.prefix}) &> {log}"
-
-################################################################################
-### Index transposon with salmon
-################################################################################
 
 rule index_repeats_salmon:
     input:
@@ -214,11 +263,6 @@ rule index_repeats_salmon:
         -t {input.transcripts} \
         -i {output.index} \
         -k {params.kmer}) &> {log}"
-        
-         
-################################################################################
-### Create different categories of repeat mappings
-################################################################################
 
 rule create_repeats_mappings:
     input:
@@ -237,10 +281,6 @@ rule create_repeats_mappings:
         df[["repeat", "repName"]].to_csv(output.repeat2repName, header=None, sep="\t", index=False)
         df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
         df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
-    
-################################################################################
-### Create different categories of transposon mappings
-################################################################################
 
 rule create_repeats_filtered_mappings:
     input:
@@ -260,14 +300,10 @@ rule create_repeats_filtered_mappings:
         df[["repeat", "repClass"]].to_csv(output.repeat2repClass, header=None, sep="\t", index=False)
         df[["repeat", "repFamily"]].to_csv(output.repeat2repFamily, header=None, sep="\t", index=False)
 
-#################################################################################
-### Index genome STAR
-#################################################################################
-
 rule index_genome_canonical_geneset_STAR:
     input:
         genome = config["genome"],
-        annotation = config["gtf"]
+        annotation = config["gtf_canonical_geneset_wormbase"]
     output:
         outputdir = directory(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"))
     params:
@@ -295,10 +331,6 @@ rule index_genome_canonical_geneset_STAR:
         --runThreadN {threads} \
         --sjdbGTFfile {input.annotation}) &> {log}"
 
-#################################################################################
-### Index genome bowtie
-#################################################################################
-
 rule index_genome_bowtie:
     input:
         genome = config["genome"],
@@ -314,6 +346,22 @@ rule index_genome_bowtie:
     shell:
         "(mkdir -p {output.index}; \
         bowtie-build {input.genome} {params.prefix}) &> {log}"
+
+rule gff_transposons_2_bed:
+    input:
+        gff_transposons_wormbase = config["gff_transposons_wormbase"]
+    output:
+        bed_transposons_wormbase =  os.path.join(config["output_dir"], "annotation", "transposons.bed")
+    log:
+        os.path.join(config["local_log"],"gff_transposons_2_bed.log")
+    run:
+        df = pd.read_csv(input.gff_transposons_wormbase, header=None, sep="\t")
+        df.columns = ["chr", "db", "annotation", "start", "end", "n1", "strand", "n2", "id"]
+        df["start"] = df["start"] - 1
+        df = df[["chr", "start", "end", "id", "n1", "strand"]]
+        df.to_csv(output.bed_transposons_wormbase, header=None, index=None, sep="\t")    
+
+
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as

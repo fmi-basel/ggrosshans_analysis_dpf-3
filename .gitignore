@@ -8,7 +8,9 @@ igv_sessions
 screenshots/
 .snakemake
 results
+results*
 logs
+logs*
 dag.png
 filegraph.png
 rulegraph.png
@@ -16,3 +18,5 @@ nohup.out
 conda
 small_RNA_seq_15_C_repeats/
 small_RNA_seq_25_C_repeats/
+igv.log
+

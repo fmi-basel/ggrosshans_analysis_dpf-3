@@ -9,16 +9,15 @@
   envs: "../envs/"
 
   # annotation
-  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
+  gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
-  gene_ids: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
   bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
-  spike_ins_fasta: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa"
-  spike_ins_bowtie_index: "/tungstenfs/groups/ggrossha/gypafoiv/resources/takashim_spikeInPool1/takashim_spikeInPool1.fa.Rbowtie"
 
   # rule params
-  transcript_biotype: "protein_coding,mRNA"
+  transcript_biotype: "protein_coding,mRNA,repeat"
   kmer_len: ["9", "10", "11", "12", "13",]
   umi_length: 8
   adapter: "AACTGTAGGCACCATCAAT"

@@ -1,4 +1,7 @@
 ---
+  ############################
+  # directories for workflow #
+  ############################
   samples: "samples.tsv"
   output_dir: "results"
   logs: "logs"
@@ -6,20 +9,35 @@
   cluster_log: "logs/cluster_log"
   scripts: "../scripts"
   envs: "../envs/"
-  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
-  gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
+  ##############
+  # annotation #
+  ##############
+
+  # genome
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
-  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
-  # transposons based on ucsc
-  repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_repeats.tsv"
+
+  # annotation wormbase
+  gtf_canonical_geneset_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf_transposon_transcripts_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
+  gff_transposons_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
+  transposons_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
+
+  # annotation ucsc
+  ucsc_repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_repeats.tsv"
   
+  # indexes
+  bowtie_index: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/indexes/STAR_index_sjdb_100_bowtie_salmon_k_mer_31/results/bowtie"
+
+  ###################
+  # rule parameters #
+  ###################
+  
+  # rule STAR index
+  sjdbOverhang: [50, 75, 100]
+
+  # filter RNAS
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
-  sjdbOverhang: [50, 75, 100]
-
-  # transposons based on Wormbase
-  # gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
-  # transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.transposons.fa"
 ...

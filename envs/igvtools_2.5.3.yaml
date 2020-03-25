@@ -1,0 +1,7 @@
+---
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - igvtools=2.5.3
+...

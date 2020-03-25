@@ -15,6 +15,7 @@ from functools import reduce
 
 def get_samples():
     design_table = pd.read_csv(config["samples"], sep="\t", header=0)
+    return ['wild_type_A']
     return list(design_table["sample"])
 
 def get_fq_1(wildcards):
@@ -55,7 +56,7 @@ rule finish:
                     experiment2=experiment[1]
                 ) for experiment in list(config["combinations"])],
                 mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
-        )
+        ),
         # counts_all = expand(os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}_forDE.tsv"), sample=get_samples(), mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]),
         # out_potential_umis = expand(os.path.join(config["output_dir"], "{sample}", "potential_umis", "{kmer_len}", "counts.tsv"), sample=get_samples(), kmer_len=config["kmer_len"]),
         # out_freq = expand(os.path.join(config["output_dir"], "{sample}", "frequency_for_UMI_detection", "frequency.tsv"), sample=get_samples()),
@@ -80,7 +81,7 @@ rule finish:
         #                 zip,
         #                 experiment1 = [i[0]  for i in list(config["combinations"])],
         #                 experiment2 = [i[1]  for i in list(config["combinations"])]),
-        # stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples())
+        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples())
 
 ################################################################################
 ################################################################################
@@ -95,7 +96,7 @@ rule filter_annotation_based_on_transcript_biotype:
         gtf = config["gtf"],
         script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
     output:
-        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
     params:
         transcript_biotype = config["transcript_biotype"]
     log:
@@ -595,8 +596,8 @@ rule htseq_count__alignment_sorted_filtered_unique_mappers:
     """
     input:
         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
-        gtf = os.path.join(config["output_dir"], "annotation", "annotation_protein_coding_and_transposon_transcripts.gtf")
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), 
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
     output:
         htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv")
     params:
@@ -787,7 +788,8 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filte
     input:
         table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
         table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
-        gene_info = config["gene_ids"]
+        gene_info = config["gene_info"],
+        repeats_info = config["repeats_info"]
     output:
         table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
         table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
@@ -795,13 +797,19 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filte
         os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
     threads:    1
     run:
+        # read in tables
         table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
         table_all = pd.read_csv(input.table_all, header=0, sep="\t")
         gene_info = pd.read_csv(input.gene_info, header=None)
         gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")
+        # merges
         table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
-        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(repeats_info, how="left", on="id")
         table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all = table_all.merge(repeats_info, how="left", on="id")
+        # write out files
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
         table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
 
 ################################################################################
