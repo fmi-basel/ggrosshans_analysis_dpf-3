@@ -97,7 +97,7 @@ rule filter_annotation_based_on_transcript_biotype:
 
 rule alfa_genome_index:
     input:
-        gtf = config["gtf"],
+        gtf = config["gtf_canonical_geneset_wormbase"],
         chr_len = config["genome_size"]
     output:
         alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
@@ -439,7 +439,7 @@ rule filter_RNAs:
     input:
         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
-        gtf = config["gtf"],
+        gtf = config["gtf_canonical_geneset_wormbase"],
         script = os.path.join(config["scripts"], "filter_RNAs.py"),
     output:
         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
@@ -485,26 +485,6 @@ rule samtools_keep_unique_mappers:
         samtools view -bS - > {output.bam}; \
         samtools index -@ {threads} {output.bam} {output.bai}; \
         ) &> {log}"
-
-rule extract_small_RNAs:
-    input:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
-        script = os.path.join(config["scripts"], "filter_22G_RNAs.py")
-    output:
-        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam"),
-        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.22G.bam.bai")
-    threads:   1
-    conda:
-        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
-    log:
-        os.path.join(config["local_log"],"extract_small_RNAs_{sample}.log")
-    shell:
-        "(python {input.script} \
-        --bam {input.bam} \
-        --bam_out {output.bam} \
-        --verbose; \
-        samtools index {output.bam} > {output.bai}) &> {log}"
 
 ################################################################################
 ################################################################################

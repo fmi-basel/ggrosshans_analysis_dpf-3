@@ -9,6 +9,7 @@
   envs: "../envs/"
 
   # annotation
+  gtf_canonical_geneset_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
   gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
@@ -24,7 +25,7 @@
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
-  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["yes", "reverse"]
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["reverse"]
 
   # samples
   experiment_samples: {

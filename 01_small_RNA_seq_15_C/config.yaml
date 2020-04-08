@@ -9,6 +9,7 @@
   envs: "../envs/"
 
   # annotation
+  gtf_canonical_geneset_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
   gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
   gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
@@ -24,7 +25,7 @@
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
 
-  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["yes", "reverse"]
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["reverse"]
 
   samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
 
@@ -52,9 +53,11 @@
                  [WT_A_B_C, Dpf_3_null],
                  [WT_A_B_C, Dpf_3_S784A],
                  [WT_A_B_C, mut_2],
+                 [WT_A_B_C, mut_7],
                  [WT_D_E_F, Dpf_3_null],
                  [WT_D_E_F, Dpf_3_S784A],
                  [WT_D_E_F, mut_2],
+                 [WT_D_E_F, mut_7],
                  [WT_A_C_E, Dpf_3_null],
                  [WT_A_C_E, Dpf_3_S784A],
                  [WT_A_C_E, mut_2],
