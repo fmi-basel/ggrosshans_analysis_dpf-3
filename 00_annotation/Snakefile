@@ -18,6 +18,7 @@ rule finish:
         tsv = os.path.join(config["output_dir"], "annotation", "ce_11_repeats.filtered.tsv"),
         star_index = expand(os.path.join(config["output_dir"], "indexes", "canonical_geneset", "STAR_index", "{sjdbOverhang}"), sjdbOverhang=config["sjdbOverhang"]),
         bowtie_index = os.path.join(config["output_dir"], "indexes", "genome", "bowtie"),
+        seq = os.path.join(config["output_dir"], "annotation", "mirnas.fa")
         # bowtie_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "bowtie"),
         # salmon_index_repeats_filtered = os.path.join(config["output_dir"], "indexes", "repeats_filtered", "salmon.idx"),
         # bowtie_index_repeats = os.path.join(config["output_dir"], "indexes", "repeats", "bowtie"),
@@ -359,9 +360,34 @@ rule gff_transposons_2_bed:
         df.columns = ["chr", "db", "annotation", "start", "end", "n1", "strand", "n2", "id"]
         df["start"] = df["start"] - 1
         df = df[["chr", "start", "end", "id", "n1", "strand"]]
-        df.to_csv(output.bed_transposons_wormbase, header=None, index=None, sep="\t")    
+        df.to_csv(output.bed_transposons_wormbase, header=None, index=None, sep="\t")
 
+rule create_mirna_gtf:
+    input:
+        gtf = config["gtf_canonical_geneset_wormbase"],
+    output:
+        gtf = os.path.join(config["output_dir"], "annotation", "mirnas.gtf")
+    log:
+        os.path.join(config["local_log"], "create_mirna_gtf.log")
+    shell:
+        "(grep -P 'transcript_biotype \"miRNA\"' {input.gtf} > {output.gtf}) &> {log}"
 
+rule extract_miRNA_sequences:
+    input:
+        gtf = os.path.join(config["output_dir"], "annotation", "mirnas.gtf"),
+        genome = config["genome"]
+    output:
+        seq = os.path.join(config["output_dir"], "annotation", "mirnas.fa")
+    conda:
+        os.path.join(config["envs"], "cufflinks_2.2.1.yaml")
+    log:
+        os.path.join(config["local_log"], "extract_miRNA_sequences.log")
+    shell:
+        "(gffread \
+        {input.gtf} \
+        -g {input.genome} \
+        -w {output.seq} \
+        ) &> {log}"
 
 ################################################################################
 ### Concatenate normal transcripts and transcripts annotated as
