@@ -45,6 +45,7 @@ rule finish:
                                      "alignment_sorted_filtered_unique_mappers_{mode}",
                                      "counts.tsv"),
                         mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]),
+        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples()),
         de = expand(
             [os.path.join(
                 config["output_dir"], 
@@ -57,7 +58,18 @@ rule finish:
                 ) for experiment in list(config["combinations"])],
                 mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
         ),
-        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples())
+        de_seq = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter_sequences", 
+                "DE_sequences__{{category}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                category=config["category"]
+        )
 
 ################################################################################
 ################################################################################
@@ -540,6 +552,65 @@ rule for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
         df = df[~df["Name"].str.startswith("__")]
         df.to_csv(output.counts, header=True, sep="\t", index=False)
 
+rule count_sequences:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), 
+        script = os.path.join(config["scripts"], "count_sequences.py")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.tsv")
+    params:
+        outdir = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"],"count_sequences_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --bam {input.bam} \
+        --out {params.outdir} \
+        --verbose) &> {log}"
+
+rule filter_mirnas_from_counts_table:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.tsv"),
+        mirnas = config["mirnas"],
+        script = os.path.join(config["scripts"], "filter_mirnas_from_sequence_counts.py")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.no_mirnas.tsv")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"],"filter_mirnas_from_counts_table_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --counts {input.counts} \
+        --mirnas {input.mirnas} \
+        --out {output.counts} \
+        --verbose) &> {log}"
+
+rule split_sequence_counts:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.no_mirnas.tsv"),
+        script = os.path.join(config["scripts"], "extract_small_rna_category_from_sequence_counts.py")
+    params:
+        category = "{category}"
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.no_mirnas.{category}.tsv")
+    log:
+        os.path.join(config["local_log"],"split_sequence_counts_{sample}_{category}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --counts {input.counts} \
+        --category {params.category} \
+        --out {output.counts} \
+        --verbose) &> {log}"
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -715,3 +786,52 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filte
         # write out files
         table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
         table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_for_DE_sequences:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.no_mirnas.{category}.tsv"), sample1=config["experiment_samples"][wildcards.experiment1], category=wildcards.category),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "alignment.sorted.filtered.unique_mappers.count_sequences", "counts.no_mirnas.{category}.tsv"), sample2=config["experiment_samples"][wildcards.experiment2], category=wildcards.category),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_sequences__{category}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_sequences:
+    input:
+        counts = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter_sequences", "DE_sequences__{category}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_sequences__{category}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"

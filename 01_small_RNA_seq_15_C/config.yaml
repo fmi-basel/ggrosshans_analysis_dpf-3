@@ -16,6 +16,7 @@
   repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
   bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+  mirnas: "../00_annotation/results/annotation/mirnas.fa"
 
   # rule params
   transcript_biotype: "protein_coding,mRNA,repeat"
@@ -26,6 +27,8 @@
   filter_chromosomes: "MtDNA"
 
   htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["reverse"]
+
+  category: ["21T", "22G"]
 
   samples_to_consider: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C, Dpf_3_S784A_A, Dpf_3_S784A_B, Dpf_3_S784A_C]
 
