@@ -37,5 +37,8 @@
 
   # comparisons
   combinations: [[WT, Dpf_3_null],
-                 [WT, mut_2]]
+                 [WT, mut_2],
+                 [WT, mut_7],
+                 [WT_last, mut_2],
+                 [WT_last, mut_7]]
 ...
