@@ -56,6 +56,18 @@ rule finish:
                     experiment2=experiment[1]
                 ) for experiment in list(config["combinations"])],
                 mode=config["htseq_count_alignment_unique_mappers_mode"]
+        ),
+        de_repeat_name = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter_repeat_name_level", 
+                "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{{mode}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                mode=config["htseq_count_alignment_unique_mappers_mode"]
         )
         
 rule filter_annotation_based_on_transcript_biotype:
@@ -418,7 +430,7 @@ rule edgeR_prepare_pairs_for_DE_htseq_count_alignment_unique_mappers_aggregate_c
         counts = os.path.join(config["output_dir"], "filter_repeat_family_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_family_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
         conditions = os.path.join(config["output_dir"], "filter_repeat_family_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_family_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
     params:
-        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_family_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        output_dir = os.path.join(config["output_dir"], "filter_repeat_family_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_family_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
         condition1_name = "{experiment1}",
         condition2_name = "{experiment2}"
     conda:
@@ -457,6 +469,75 @@ rule edgeR_differential_for_DE_htseq_count_alignment_unique_mappers_aggregate_co
         --conditions {input.conditions} \
         --counts {input.counts} \
         --outfolder {params.output_dir}) &> {log}"
+
+rule aggregate_counts_repeat_name_level:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_alignment_unique_mappers_{mode}.tsv"),
+        repeats_info = config["repeats_info"]
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_alignment_unique_mappers.aggregate_repeats_name_{mode}.tsv")
+    log:
+        os.path.join(config["local_log"], "aggregate_counts_repeat_name_level_{sample}_{mode}.log")
+    threads:    1
+    run:
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")[["id", "repName"]]
+        repeats_info_dict = pd.Series(repeats_info.repName.values,index=repeats_info.id).to_dict()
+
+        counts = pd.read_csv(input.counts, header=0, sep="\t")
+        counts.replace({"Name": repeats_info_dict}, inplace=True)
+        counts_aggregated = counts.groupby("Name").sum()
+        counts_aggregated.reset_index(inplace=True)
+        counts_aggregated.to_csv(output.counts, header=True, index=False, sep="\t")
+
+rule edgeR_prepare_pairs_for_DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "forDE_alignment_unique_mappers.aggregate_repeats_name_{mode}.tsv"), sample1=config["experiment_samples"][wildcards.experiment1], mode=wildcards.mode),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "forDE_alignment_unique_mappers.aggregate_repeats_name_{mode}.tsv"), sample2=config["experiment_samples"][wildcards.experiment2], mode=wildcards.mode),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level:
+    input:
+        counts = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter_repeat_name_level", "DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count_alignment_unique_mappers_aggregate_counts_repeat_name_level__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
 
 # rule salmon_quant_filtered_transcripts:
 #     input:
