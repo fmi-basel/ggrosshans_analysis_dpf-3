@@ -40,5 +40,8 @@
                  [WT, mut_2],
                  [WT, mut_7],
                  [WT_last, mut_2],
-                 [WT_last, mut_7]]
+                 [WT_last, mut_7],
+                 [WT_all, Dpf_3_null],
+                 [WT_all, mut_2],
+                 [WT_all, mut_7]]
 ...
