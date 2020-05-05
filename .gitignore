@@ -26,3 +26,4 @@ old_notebooks
 *.pdf
 .ipynb_checkpoints
 plots/*/*.tsv
+comparisons/list_of_*

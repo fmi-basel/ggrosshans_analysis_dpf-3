@@ -69,7 +69,8 @@ rule finish:
                     experiment2=experiment[1]
                 ) for experiment in list(config["combinations"])],
                 category=config["category"]
-        )
+        ),
+        bw_minus = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bw"), sample=get_samples())
 
 ################################################################################
 ################################################################################
@@ -475,9 +476,6 @@ rule filter_RNAs:
         samtools index -@ {threads} {output.bam} {output.bai};)"
 
 rule samtools_keep_unique_mappers:
-    """
-    keep unique mappers
-    """
     input:
         bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
         bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
@@ -497,6 +495,70 @@ rule samtools_keep_unique_mappers:
         samtools view -bS - > {output.bam}; \
         samtools index -@ {threads} {output.bam} {output.bai}; \
         ) &> {log}"
+
+rule samtools_unique_mappers_library_size_scale:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
+    output:
+        txt = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.scale.txt"),
+    conda:
+        os.path.join(config["envs"], "samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"samtools_unique_mappers_library_size_scale_{sample}.log")
+    shell:
+        "(echo \
+        $(bc <<< \"scale=5;1000000/$(samtools view -c {input.bam})\") \
+        > {output.txt}) &> {log}"
+
+rule bedtools_genome_coverage_unique_mappers:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
+        txt = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.scale.txt")
+    output:
+        bg_plus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.plus.bg"),
+        bg_minus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bg")
+    conda:
+        os.path.join(config["envs"], "bedtools_2.28.0.yaml")
+    log:
+        os.path.join(config["local_log"],"bedtools_genome_coverage_unique_mappers_{sample}.log")
+    shell:
+        "(bedtools genomecov \
+        -bg \
+        -strand + \
+        -scale $(cat {input.txt}) \
+        -ibam {input.bam} \
+        > {output.bg_plus}; \
+        bedtools genomecov \
+        -bg \
+        -strand - \
+        -scale $(cat {input.txt}) \
+        -ibam {input.bam} \
+        > {output.bg_minus};) &> {log}"
+
+rule bedgraph_to_bigwig_unique_mappers:
+    input:
+        bg_plus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.plus.bg"),
+        bg_minus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bg"),
+        genome_size = config["genome_size"]
+    output:
+        bw_plus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.plus.bw"),
+        bw_minus = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bw"),
+    conda:
+        os.path.join(config["envs"], "ucsc_bedgraphtobigwig_377.yaml")
+    log:
+        os.path.join(config["local_log"],"bedgraph_to_bigwig_unique_mappers_{sample}.log")
+    shell:
+        "(bedGraphToBigWig \
+         {input.bg_plus} \
+         {input.genome_size} \
+         {output.bw_plus}; \
+         bedGraphToBigWig \
+         {input.bg_minus} \
+         {input.genome_size} \
+         {output.bw_minus}; \
+         ) &> {log}"
 
 ################################################################################
 ################################################################################
