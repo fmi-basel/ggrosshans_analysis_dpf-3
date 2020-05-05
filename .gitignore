@@ -28,3 +28,4 @@ old_notebooks
 plots/*/*.tsv
 comparisons/list_of_*
 comparisons/Untitled1.ipynb
+plots/tissue_enrichment_analysis/GSE62857*
