@@ -27,3 +27,4 @@ old_notebooks
 .ipynb_checkpoints
 plots/*/*.tsv
 comparisons/list_of_*
+comparisons/Untitled1.ipynb
