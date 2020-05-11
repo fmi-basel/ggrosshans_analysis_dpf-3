@@ -10,6 +10,6 @@ snakemake \
 --conda-prefix ../conda \
 --configfile config.yaml \
 -p \
---local-cores 60 \
---cores 60 \
+--local-cores 50 \
+--cores 50 \
 --rerun-incomplete

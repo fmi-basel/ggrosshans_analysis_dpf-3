@@ -108,12 +108,14 @@ def main():
         end = str(row['genoEnd'])
         strand = str(row["strand"])
         
-        rep_id = f"repeat \"{chrom}:{start}-{end}:{strand}\";"
+        rep_id = f"gene_id \"{chrom}:{start}-{end}:{strand}\";"
         repName = f"repName \"{row['repName']}\";"
         repClass = f"repClass \"{row['repClass']}\";"
         repFamily = f"repFamily \"{row['repFamily']}\";"
+        gene_biotype = "gene_biotype \"repeat\";"
+        transcript_biotype = "transcript_biotype \"repeat\";"
         
-        attributes = " ".join([rep_id, repName, repClass, repFamily + os.linesep])
+        attributes = " ".join([rep_id, repName, repClass, repFamily, gene_biotype, transcript_biotype + os.linesep])
         
         w.write("\t".join([chrom,
                           "ucsc_repbase",
@@ -137,10 +139,12 @@ def main():
         end = str(row['genoEnd'])
         strand = str(row["strand"])
         
-        rep_id = f"repeat={chrom}:{start}-{end}:{strand};"
+        rep_id = f"gene_id={chrom}:{start}-{end}:{strand};"
         repName = f"repName={row['repName']};"
         repClass = f"repClass={row['repClass']};"
         repFamily = f"repFamily={row['repFamily']};"
+        gene_biotype = "gene_biotype=repeat;"
+        transcript_biotype = "transcript_biotype=repeat;"
         
         attributes = "".join([rep_id, repName, repClass, repFamily + os.linesep])
         

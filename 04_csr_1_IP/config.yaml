@@ -1,0 +1,36 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+  envs: "../envs/"
+
+  # annotation
+  gtf_canonical_geneset_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
+  bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
+  genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+
+  # rule params
+  transcript_biotype: "protein_coding,mRNA,repeat"
+  adapter: "AGATCGGAAG"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["yes", "reverse"]
+
+  # samples
+  experiment_samples: {
+    csr-1_input: ["csr-1_input_1", "csr-1_input_2", "csr-1_input_3"],
+    csr-1_IP: ["csr-1_IP_1", "csr-1_IP_2", "csr-1_IP_3"]
+  }
+
+  # comparisons
+  combinations: [["csr-1_input", "csr-1_IP"]]
+...

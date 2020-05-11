@@ -6,20 +6,17 @@
   cluster_log: "logs/cluster_log"
   scripts: "../scripts"
   envs: "../envs/"
-
-  gtf: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.canonical_geneset.and.transposon_transcripts.gtf"
+ 
+  gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
   genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
-  gene_ids: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
   bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
   genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
-
-  gtf_transposon_transcripts: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposon_transcripts.gtf"
-  repeats: "/tungstenfs/groups/ggrossha/gypafoiv/resources/worm/annotation/UCSC/ce11_WBcel235/ce_11_transposons.tsv"
-
-  gff_transposons: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/transposons/c_elegans.PRJNA13758.WS270.annotations.WormBase_transposon.transposons.gff3"
+  index_genome_STAR: "../00_annotation/results/indexes/canonical_geneset/STAR_index/75/"
 
   # rule params
-  transcript_biotype: "protein_coding,mRNA"
+  transcript_biotype: "protein_coding,mRNA,repeat"
   # transposons based on ucsc
   filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
   filter_chromosomes: "MtDNA"
@@ -40,5 +37,11 @@
 
   # comparisons
   combinations: [[WT, Dpf_3_null],
-                 [WT, mut_2]]
+                 [WT, mut_2],
+                 [WT, mut_7],
+                 [WT_last, mut_2],
+                 [WT_last, mut_7],
+                 [WT_all, Dpf_3_null],
+                 [WT_all, mut_2],
+                 [WT_all, mut_7]]
 ...
