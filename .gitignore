@@ -32,3 +32,4 @@ plots/tissue_enrichment_analysis/GSE62857*
 plots/correlation_plots_IPs/union_exons.bed
 plots/enrichment_of_classes/list_of_genes_overlap_with_repeats.txt
 plots/enrichment_of_classes/list_of_repeats_overlap_with_genes.txt
+WAGO_3_IP/*.old
