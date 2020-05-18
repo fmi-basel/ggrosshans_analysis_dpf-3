@@ -70,7 +70,10 @@ rule finish:
                 ) for experiment in list(config["combinations"])],
                 category=config["category"]
         ),
-        bw_minus = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bw"), sample=get_samples())
+        bw_minus = expand(os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.minus.bw"), sample=get_samples()),
+        pdf_m = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
+        pdf_f = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
+        pdf_u = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
 
 ################################################################################
 ################################################################################

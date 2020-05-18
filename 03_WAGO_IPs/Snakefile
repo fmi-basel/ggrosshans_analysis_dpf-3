@@ -57,7 +57,10 @@ rule finish:
                 ) for experiment in list(config["combinations"])],
                 mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
         ),
-        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples())
+        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples()),
+        pdf_m = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
+        pdf_f = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
+        pdf_u = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
 
 ################################################################################
 ################################################################################
