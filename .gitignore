@@ -32,3 +32,12 @@ plots/tissue_enrichment_analysis/GSE62857*
 plots/correlation_plots_IPs/union_exons.bed
 plots/enrichment_of_classes/list_of_genes_overlap_with_repeats.txt
 plots/enrichment_of_classes/list_of_repeats_overlap_with_genes.txt
+plots/tissue_enrichment_analysis_multimappers/GSE62857_ce_geneExpression_soma_germline_normalized.txt
+*.bed
+upload_to_geo
+comparisons/general_stats.ipynb
+WAGO_3_IP
+WAGO_9_IP
+GSE52910
+small_RNA_seq_25_C
+total_RNAseq_dpf3_25_C
