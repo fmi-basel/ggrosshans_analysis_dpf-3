@@ -60,7 +60,24 @@ rule finish:
         stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples()),
         pdf_m = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
         pdf_f = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
-        pdf_u = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
+        pdf_u = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"),
+        counts_1_alignment_per_read = expand(os.path.join(config["output_dir"], 
+                                                          "counts", 
+                                                          "1_alignment_per_read_{mode}", 
+                                                          "counts.tsv"), 
+                                            mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]),
+        de_1_al = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter", 
+                "DE_htseq_count__1_alignment_per_read__{{mode}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table_with_gene_info.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
+        ),
 
 ################################################################################
 ################################################################################
@@ -489,6 +506,58 @@ rule samtools_keep_unique_mappers:
         samtools index -@ {threads} {output.bam} {output.bai}; \
         ) &> {log}"
 
+rule filter_RNAs_bam_to_fastq:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+        script = os.path.join(config["scripts"], "bam2fastq.py")
+    output:
+        fastq = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.fastq")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"],"filter_RNAs_bam_to_fastq_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --bam {input.bam} \
+        --fastq {output.fastq} \
+        --verbose) &> {log}"
+
+rule bowtie_align_1_alignment_per_read:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.fastq"),
+        bowtie_index = config["bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam.bai")
+    params:
+        index_prefix = config["bowtie_index"] + "/bowtie"
+    threads:   8
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"bowtie_align_{sample}.log")
+    shell:
+        "(bowtie \
+        -v 0 \
+        --all \
+        -M 1 \
+        --best \
+        --strata \
+        --sam \
+        --threads {threads} \
+        {params.index_prefix} \
+        {input.reads} \
+        | samtools view -bS - \
+        | samtools sort \
+        -m 10G \
+        --threads {threads} \
+        --output-fmt BAM - \
+        -o {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai}; \
+        ) &> {log}"
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -543,6 +612,53 @@ rule for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
         df = df[~df["Name"].str.startswith("__")]
         df.to_csv(output.counts, header=True, sep="\t", index=False)
 
+rule htseq_count__1_alignment_per_read:
+    """
+    count reads in the opposite strand of genes
+    (here 22G RNAs should fall)
+    """
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam.bai"),
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv")
+    params:
+        mode = "{mode}"
+    log:
+        os.path.join(config["local_log"],"htseq_count__1_alignment_per_read_{mode}_{sample}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded {params.mode} \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        -a 0 \
+        --nonunique none \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+rule for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"],"for_DE_htseq_count__1_alignment_per_read_{sample}_{mode}.log")
+    run:
+        df = pd.read_csv(input.counts, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -560,6 +676,30 @@ rule collect_htseq_count__alignment_sorted_filtered_unique_mappers:
         counts = os.path.join(config["output_dir"], "counts", "alignment_sorted_filtered_unique_mappers_{mode}", "counts.tsv")
     log:
         os.path.join(config["local_log"], "collect_htseq_count__alignment_sorted_filtered_unique_mappers_{mode}.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=None, sep="\t")
+            df.columns = ["Name", "counts"]
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+rule collect_htseq_count__1_alignment_per_read:
+    input:
+        counts = lambda wildcards: expand(
+            os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv"),
+            sample=get_samples(), mode=wildcards.mode)
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "1_alignment_per_read_{mode}", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_htseq_count__1_alignment_per_read_{mode}.log")
     run:
         dfs = []
         for count in input.counts:
@@ -702,6 +842,83 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filte
         table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
     log:
         os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        # read in tables
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")
+        # merges
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(repeats_info, how="left", on="id")
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all = table_all.merge(repeats_info, how="left", on="id")
+        # write out files
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv"), sample1=config["experiment_samples"][wildcards.experiment1], mode=wildcards.mode),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv"), sample2=config["experiment_samples"][wildcards.experiment2], mode=wildcards.mode),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count__1_alignment_per_reads__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule add_gene_info_edgeR_differential_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_info"],
+        repeats_info = config["repeats_info"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}.log")
     threads:    1
     run:
         # read in tables
