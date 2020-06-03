@@ -1,8 +1,0 @@
----
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - bowtie=1.2.2
-  - samtools=1.9
-...
