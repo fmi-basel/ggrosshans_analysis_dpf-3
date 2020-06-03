@@ -36,3 +36,5 @@ plots/tissue_enrichment_analysis_multimappers/GSE62857_ce_geneExpression_soma_ge
 *.bed
 upload_to_geo
 comparisons/general_stats.ipynb
+WAGO_3_IP
+WAGO_9_IP
