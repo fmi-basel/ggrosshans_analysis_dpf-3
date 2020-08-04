@@ -1,0 +1,9 @@
+ID	sample	fq1
+1127X1	WT_A	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/3_1127F1.fastq.gz
+1127X2	dpf_3_null_A	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/15_1127F2.fastq.gz
+1127X3	dpf_3_S784A_A	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/27_1127F3.fastq.gz
+1127X4	drh_3_mutant_A	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/39_1127F4.fastq.gz
+1127X5	WT_B	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/3B_1127F5.fastq.gz
+1127X6	dpf_3_null_B	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/15B_1127F6.fastq.gz
+1127X7	dpf_3_S784A_B	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/27B_1127F7.fastq.gz
+1127X8	drh_3_mutant_B	/tungstenfs/scratch/ggrossha/gypafoiv/samples/1127R_total_RNA_seq_25C/39B_1127F8.fastq.gz

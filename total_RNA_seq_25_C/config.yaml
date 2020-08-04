@@ -1,0 +1,39 @@
+---
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+  envs: "../envs/"
+ 
+  gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
+  bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
+  genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+  index_genome_STAR: "../00_annotation/results/indexes/canonical_geneset/STAR_index/75/"
+
+  # rule params
+  transcript_biotype: "protein_coding,mRNA,repeat"
+  # transposons based on ucsc
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+  sjdbOverhang: 50
+  adapter_fwd: "GATCGGAAGAGCACA"
+  # adapter_rev: "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT"
+
+  # samples
+  experiment_samples: {
+    WT: [WT_A, WT_B],
+    dpf_3_null: [dpf_3_null_A, dpf_3_null_B],
+    dpf_3_S784A: [dpf_3_S784A_A, dpf_3_S784A_B],
+    drh_3_mutant: [drh_3_mutant_A, drh_3_mutant_B]
+  }
+
+  # comparisons
+  combinations: [[WT, dpf_3_null],
+                 [WT, dpf_3_S784A],
+                 [WT, drh_3_mutant]]
+...

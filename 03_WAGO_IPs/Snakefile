@@ -78,6 +78,14 @@ rule finish:
                 ) for experiment in list(config["combinations"])],
                 mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
         ),
+        counts_miRNAs = expand(os.path.join(config["output_dir"], 
+                                            "filter", 
+                                            "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", 
+                                            "DE_edgeR", 
+                                            "final_table_FDR_low.tsv"),
+                               zip,
+                               experiment1 = [i[0]  for i in list(config["combinations"])],
+                               experiment2 = [i[1]  for i in list(config["combinations"])])
 
 ################################################################################
 ################################################################################
@@ -97,6 +105,26 @@ rule filter_annotation_based_on_transcript_biotype:
         transcript_biotype = config["transcript_biotype"]
     log:
         os.path.join(config["local_log"], "filter_annotation_based_on_transcript_biotype.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --out {output.filtered_gtf} \
+        --transcript_biotype {params.transcript_biotype} \
+        --verbose) &> {log}"
+
+rule filter_annotation_miRNAs:
+    input:
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
+    output:
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "miRNAs.gtf")
+    params:
+        transcript_biotype = "miRNA"
+    log:
+        os.path.join(config["local_log"], "filter_annotation_miRNAs.log")
     threads:    8
     conda:
         os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
@@ -659,6 +687,50 @@ rule for_DE_htseq_count__1_alignment_per_read:
         df = df[~df["Name"].str.startswith("__")]
         df.to_csv(output.counts, header=True, sep="\t", index=False)
 
+rule htseq_count_miRNAs:
+    """
+    count reads (miRNAs)
+    """
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam.bai"),
+        gtf = os.path.join(config["output_dir"], "annotation", "miRNAs.gtf")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "htseq_count_miRNAs.tsv")
+    log:
+        os.path.join(config["local_log"],"htseq_count_miRNAs_{sample}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded yes \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        -a 0 \
+        --nonunique none \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+rule for_DE_htseq_count_miRNAs:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "htseq_count_miRNAs.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "for_DE_htseq_count_miRNAs.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"],"for_DE_htseq_count_miRNAs_{sample}.log")
+    run:
+        df = pd.read_csv(input.counts, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -935,3 +1007,52 @@ rule add_gene_info_edgeR_differential_for_DE_htseq_count__1_alignment_per_read:
         # write out files
         table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
         table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_for_DE_htseq_count_miRNAs:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "for_DE_htseq_count_miRNAs.tsv"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "for_DE_htseq_count_miRNAs.tsv"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count_miRNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count_miRNAs:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count_miRNAs__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count_miRNAs__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"

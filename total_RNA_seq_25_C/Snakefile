@@ -1,0 +1,475 @@
+configfile: "config.yaml"
+
+################################################################################
+### python modules
+################################################################################
+
+import os
+import sys
+import pandas as pd
+import numpy as np
+
+################################################################################
+### Custom functions
+################################################################################
+
+def get_samples():
+    design_table = pd.read_csv(config["samples"], sep="\t", header=0)
+    # return ['wild_type_A']
+    return list(design_table["sample"])
+
+def get_fq_1(wildcards):
+    design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
+    return str(design_table.loc[wildcards.sample]["fq1"])
+
+def get_fq_2(wildcards):
+    design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
+    return str(design_table.loc[wildcards.sample]["fq2"])
+
+################################################################################
+### Finish
+################################################################################
+
+rule finish:
+    input:
+        bw = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.bw"), sample=get_samples()),
+        # counts = os.path.join(config["output_dir"], "counts", "feature_counts", "counts.corrected"),
+        counts_f = expand(os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected"), sample=get_samples()),
+        DE_feature_counts = expand(os.path.join(config["output_dir"],
+                                                "filter",
+                                                "DE_feature_counts__{experiment1}__{experiment2}",
+                                                "DE_edgeR",
+                                                "final_table_with_gene_info.tsv"),
+                                   zip,
+                                   experiment1 = [i[0]  for i in list(config["combinations"])],
+                                   experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_feature_counts_repeat_family = expand(os.path.join(config["output_dir"],
+                                                              "filter",
+                                                              "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}",
+                                                              "DE_edgeR",
+                                                              "final_table.tsv"),
+                                                 zip,
+                                                 experiment1 = [i[0]  for i in list(config["combinations"])],
+                                                 experiment2 = [i[1]  for i in list(config["combinations"])]),
+        DE_feature_counts_repeat_name = expand(os.path.join(config["output_dir"],
+                                                            "filter",
+                                                            "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}",
+                                                            "DE_edgeR",
+                                                            "final_table.tsv"),
+                                               zip,
+                                               experiment1 = [i[0]  for i in list(config["combinations"])],
+                                               experiment2 = [i[1]  for i in list(config["combinations"])])
+
+        
+rule filter_annotation_based_on_transcript_biotype:
+    input:
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
+    output: 
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    params:
+        transcript_biotype = config["transcript_biotype"]
+    log:
+        os.path.join(config["local_log"], "filter_annotation_based_on_transcript_biotype.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --out {output.filtered_gtf} \
+        --transcript_biotype {params.transcript_biotype} \
+        --verbose) &> {log}"
+
+rule fastqc_1:
+    input:
+        fq_1 = lambda wildcards: get_fq_1(wildcards)
+    output:
+        outdir = directory(os.path.join(config["output_dir"], "{sample}", "fastqc_1"))
+    conda:
+        os.path.join(config["envs"], "fastqc_0.11.8.yaml")
+    log:
+        os.path.join(config["local_log"], "fastqc_{sample}.log")
+    shell:
+        "(mkdir -p {output.outdir}; \
+        fastqc \
+        --outdir {output.outdir} \
+        {input.fq_1}) &> {log}"
+
+rule cutadapt:
+    input:
+        reads = lambda wildcards: get_fq_1(wildcards),
+    output:
+        reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz")
+    params:
+        adapter = config["adapter_fwd"],
+        minimum_length = 15,
+    log:
+        os.path.join(config["local_log"], "cutadapt_{sample}.log")
+    threads:    6
+    conda:
+        os.path.join(config["envs"], "cutadapt_2.3.yaml")
+    shell:
+        "(cutadapt \
+        --adapter {params.adapter} \
+        --minimum-length {params.minimum_length} \
+        --cores {threads} \
+        {input.reads} | gzip > {output.reads}) &> {log}"
+
+rule align_reads_STAR:
+    input:
+        index = config["index_genome_STAR"],
+        gtf = config["gtf"],
+        reads = os.path.join(config["output_dir"], "{sample}", "cutadapt", "trim_3p_adapter.fastq.gz")
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam")
+    params:
+        outFileNamePrefix = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_"),
+        outputdir = os.path.join(config["output_dir"], "{sample}", "STAR",),
+    log:
+        os.path.join(config["local_log"],"align_reads_STAR_{sample}.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
+    shell:
+        "(mkdir -p {params.outputdir}; \
+        STAR --runMode alignReads \
+        --twopassMode Basic \
+        --runThreadN {threads} \
+        --genomeDir {input.index} \
+        --sjdbGTFfile {input.gtf} \
+        --readFilesIn {input.reads} \
+        --readFilesCommand zcat \
+        --outFileNamePrefix {params.outFileNamePrefix} \
+        --outSAMtype BAM SortedByCoordinate) &> {log}"
+
+rule samtools_index_genomic_alignment:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam")
+    output:
+        bai = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai")
+    log:
+        os.path.join(config["local_log"],"samtools_index_genomic_alignment_{sample}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "samtools_1.9.yaml")
+    shell:
+        "(samtools index {input.bam} > {output.bai}) &> {log}"
+
+rule export_normalized_graph:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"),
+    output:
+        wig_Unique_str1_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.wig"),
+        wig_Unique_str2_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.wig"),
+        wig_UniqueMultiple_str1_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.wig"),
+        wig_UniqueMultiple_str2_out = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.wig")
+    params:
+        outFileNamePrefix = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_"),
+        outputdir = os.path.join(config["output_dir"], "{sample}", "STAR")
+    conda:
+        os.path.join(config["envs"], "STAR_2.7.0f.yaml")
+    log:
+        os.path.join(config["local_log"],"export_normalized_graph_{sample}.log")
+    threads:    8
+    shell:
+        "(STAR \
+        --runMode inputAlignmentsFromBAM \
+        --runThreadN {threads} \
+        --inputBAMfile {input.bam} \
+        --outWigType wiggle \
+        --outWigStrand Stranded \
+        --outWigNorm RPM \
+        --outFileNamePrefix {params.outFileNamePrefix}) &> {log}"
+
+rule wig2bigwg:
+    input:
+        wig_Unique_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.wig"),
+        wig_Unique_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.wig"),
+        wig_UniqueMultiple_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.wig"),
+        wig_UniqueMultiple_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.wig"),
+        genome_size = config["genome_size"]
+    output:
+        bigwig_Unique_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str1.out.bw"),
+        bigwig_Unique_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.Unique.str2.out.bw"),
+        bigwig_UniqueMultiple_str1 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str1.out.bw"),
+        bigwig_UniqueMultiple_str2 = os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Signal.UniqueMultiple.str2.out.bw"),
+    conda:
+        os.path.join(config["envs"], "ucsc_wigtobigwig_377.yaml")
+    log:
+        os.path.join(config["local_log"],"wig2bigwg_{sample}.log")
+    shell:
+        "(wigToBigWig {input.wig_Unique_str1} {input.genome_size} {output.bigwig_Unique_str1}; \
+        wigToBigWig {input.wig_Unique_str2} {input.genome_size} {output.bigwig_Unique_str2}; \
+        wigToBigWig {input.wig_UniqueMultiple_str1} {input.genome_size} {output.bigwig_UniqueMultiple_str1}; \
+        wigToBigWig {input.wig_UniqueMultiple_str2} {input.genome_size} {output.bigwig_UniqueMultiple_str2}; \
+        ) &> {log}"
+
+rule feature_counts:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam"), sample=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample}", "STAR", "{sample}_Aligned.sortedByCoord.out.bam.bai"), sample=get_samples()),
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "feature_counts", "counts")
+    params:
+        strandness = "1"
+    log:
+        os.path.join(config["local_log"],"feature_counts.log")
+    conda:
+        os.path.join(config["envs"], "subread_2.0.0.yaml")
+    threads:    8
+    shell:
+        "(featureCounts \
+        -M -O --fraction \
+        -T {threads} \
+        -s {params.strandness} \
+        --verbose \
+        -a {input.gtf} \
+        -o {output.counts} \
+        {input.bam}) &> {log}"
+
+rule format_feature_counts:
+    input:
+        counts = os.path.join(config["output_dir"], "counts", "feature_counts", "counts")
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "feature_counts", "counts.corrected")
+    log:
+        os.path.join(config["local_log"], "format_feature_counts.log")
+    threads:    1
+    run:
+        counts = pd.read_csv(input.counts, sep="\t", skiprows=1, low_memory=False)
+        index = ["Name", "chr", "start", "end", "strand", "Length"]
+        counts.columns =  index + counts.columns[6:].str.split("/").str[1].tolist()
+        counts.set_index(index, inplace=True)
+        counts = np.round(counts)
+        counts.to_csv(output.counts, sep="\t", index=True)
+
+rule split_feature_counts:
+    input:
+        counts = os.path.join(config["output_dir"], "counts", "feature_counts", "counts.corrected")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected")
+    log:
+        os.path.join(config["local_log"], "split_feature_counts_{sample}.log")
+    threads:    1
+    run:
+        sample_name = output.counts.split("/")[-3]
+        counts_in = pd.read_csv(input.counts, header=0, sep="\t", low_memory=False)
+        counts_out = counts_in[["Name", sample_name]].copy()
+        counts_out.columns = ["Name", "counts"]
+        counts_out.to_csv(output.counts, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_feature_counts:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "feature_counts", "counts.corrected"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "feature_counts", "counts.corrected"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_feature_counts__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_feature_counts:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_feature_counts__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule add_gene_info_edgeR_differential_feature_counts:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_info"],
+        repeats_info = config["repeats_info"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_feature_counts__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_feature_counts__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        # read in tables
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")
+        # merges
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(repeats_info, how="left", on="id")
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all = table_all.merge(repeats_info, how="left", on="id")
+        # write out files
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+rule aggregate_feature_counts_repeat_family_level:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected"),
+        repeats_info = config["repeats_info"]
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected_repeat_family_level")
+    log:
+        os.path.join(config["local_log"], "aggregate_feature_counts_repeat_family_level_{sample}.log")
+    threads:    1
+    run:
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")[["id", "repFamily"]]
+        repeats_info_dict = pd.Series(repeats_info.repFamily.values,index=repeats_info.id).to_dict()
+
+        counts = pd.read_csv(input.counts, header=0, sep="\t")
+        counts.replace({"Name": repeats_info_dict}, inplace=True)
+        counts_aggregated = counts.groupby("Name").sum()
+        counts_aggregated.reset_index(inplace=True)
+        counts_aggregated.to_csv(output.counts, header=True, index=False, sep="\t")
+
+rule edgeR_prepare_pairs_feature_counts_repeat_family_level:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "feature_counts", "counts.corrected_repeat_family_level"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "feature_counts", "counts.corrected_repeat_family_level"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_feature_counts_repeat_family_level__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_feature_counts_repeat_family_level:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_family_level__{experiment1}__{experiment2}", "DE_edgeR")
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_feature_counts_repeat_family_level__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule aggregate_feature_counts_repeat_name_level:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected"),
+        repeats_info = config["repeats_info"]
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "feature_counts", "counts.corrected_repeat_name_level")
+    log:
+        os.path.join(config["local_log"], "aggregate_feature_counts_repeat_name_level_{sample}.log")
+    threads:    1
+    run:
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")[["id", "repName"]]
+        repeats_info_dict = pd.Series(repeats_info.repName.values,index=repeats_info.id).to_dict()
+
+        counts = pd.read_csv(input.counts, header=0, sep="\t")
+        counts.replace({"Name": repeats_info_dict}, inplace=True)
+        counts_aggregated = counts.groupby("Name").sum()
+        counts_aggregated.reset_index(inplace=True)
+        counts_aggregated.to_csv(output.counts, header=True, index=False, sep="\t")
+
+rule edgeR_prepare_pairs_feature_counts_repeat_name_level:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "feature_counts", "counts.corrected_repeat_name_level"), sample1=config["experiment_samples"][wildcards.experiment1]),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "feature_counts", "counts.corrected_repeat_name_level"), sample2=config["experiment_samples"][wildcards.experiment2]),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_feature_counts_repeat_name_level__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_feature_counts_repeat_name_level:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_feature_counts_repeat_name_level__{experiment1}__{experiment2}", "DE_edgeR")
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_feature_counts_repeat_name_level__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
