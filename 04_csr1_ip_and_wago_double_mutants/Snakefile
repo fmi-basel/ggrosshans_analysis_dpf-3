@@ -1,0 +1,937 @@
+configfile: "config.yaml"
+
+################################################################################
+### python modules
+################################################################################
+
+import os
+import sys
+import pandas as pd
+import matplotlib.pyplot as plt
+from functools import reduce
+
+################################################################################
+### Custom functions
+################################################################################
+
+def get_samples():
+    design_table = pd.read_csv(config["samples"], sep="\t", header=0)
+    return list(design_table["sample"])
+
+def get_fq_1(wildcards):
+    design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
+    return str(design_table.loc[wildcards.sample]["fq1"])
+
+def get_fq_2(wildcards):
+    design_table = pd.read_csv(config["samples"], sep="\t", index_col="sample")
+    return str(design_table.loc[wildcards.sample]["fq2"])
+
+################################################################################
+### Finish
+################################################################################
+
+rule finish:
+    input:
+        outdir = expand(os.path.join(config["output_dir"], 
+                                     "{sample}", 
+                                     "fastqc"), 
+                        sample=get_samples()),
+        steps_plot = os.path.join(config["output_dir"], 
+                                  "summary", 
+                                  "stats", 
+                                  "stats.pdf"),
+        counts = expand(os.path.join(config["output_dir"],
+                                     "counts",
+                                     "alignment_sorted_filtered_unique_mappers_{mode}",
+                                     "counts.tsv"),
+                        mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]),
+        de = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter", 
+                "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{{mode}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table_with_gene_info.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
+        ),
+        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples()),
+        pdf_m = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf"),
+        pdf_f = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf"),
+        pdf_u = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf"),
+        counts_1_alignment_per_read = expand(os.path.join(config["output_dir"], 
+                                                          "counts", 
+                                                          "1_alignment_per_read_{mode}", 
+                                                          "counts.tsv"), 
+                                            mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]),
+        de_1_al = expand(
+            [os.path.join(
+                config["output_dir"], 
+                "filter", 
+                "DE_htseq_count__1_alignment_per_read__{{mode}}__{experiment1}__{experiment2}", 
+                "DE_edgeR", 
+                "final_table_with_gene_info.tsv").format(
+                    experiment1=experiment[0], 
+                    experiment2=experiment[1]
+                ) for experiment in list(config["combinations"])],
+                mode=config["htseq_count__alignment_sorted_filtered_unique_mappers_mode"]
+        ),
+
+################################################################################
+################################################################################
+################################################################################
+### PART with annotations
+################################################################################
+################################################################################
+################################################################################
+
+rule filter_annotation_based_on_transcript_biotype:
+    input:
+        gtf = config["gtf"],
+        script = os.path.join(config["scripts"], "filter_annotation_transcripts.py")
+    output:
+        filtered_gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    params:
+        transcript_biotype = config["transcript_biotype"]
+    log:
+        os.path.join(config["local_log"], "filter_annotation_based_on_transcript_biotype.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --out {output.filtered_gtf} \
+        --transcript_biotype {params.transcript_biotype} \
+        --verbose) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### PART with indexes
+################################################################################
+################################################################################
+################################################################################
+
+rule alfa_genome_index:
+    input:
+        gtf = config["gtf_canonical_geneset_wormbase"],
+        chr_len = config["genome_size"]
+    output:
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index"),
+        alfa_index_unstranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.unstranded.ALFA_index")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index")
+    log:
+        os.path.join(config["local_log"], "alfa_genome_index.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "alfa_1.1.1.yaml")
+    shell:
+        "(alfa \
+        -a {input.gtf} \
+        -g {params.genome_index_basename} \
+        --chr_len {input.chr_len} \
+        -p {threads}) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### PART with qualities and plots
+################################################################################
+################################################################################
+################################################################################
+
+rule fastqc:
+    input:
+        fq_1 = lambda wildcards: get_fq_1(wildcards)
+    output:
+        outdir = directory(os.path.join(config["output_dir"], "{sample}", "fastqc"))
+    conda:
+        os.path.join(config["envs"], "fastqc_0.11.8.yaml")
+    log:
+        os.path.join(config["local_log"], "fastqc_{sample}.log")
+    shell:
+        "(mkdir -p {output.outdir}; \
+        fastqc \
+        --outdir {output.outdir} \
+        {input.fq_1}) &> {log}"
+
+rule fastqc_filtered:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "filter_low_quality_reads", "filter_quality.fastq.gz")
+    output:
+        outdir = directory(os.path.join(config["output_dir"], "{sample}", "fastqc_filtered"))
+    conda:
+        os.path.join(config["envs"], "fastqc_0.11.8.yaml")
+    log:
+        os.path.join(config["local_log"], "fastqc_filtered_{sample}.log")
+    shell:
+        "(mkdir -p {output.outdir}; \
+        fastqc \
+        --outdir {output.outdir} \
+        {input.reads}) &> {log}"
+
+rule alfa_aligment_statistics:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics", "alfa_aligment_statistics.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics",
+        output_dir = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics"),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "alfa_1.1.1.yaml")
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
+
+rule alfa_aligment_statistics_filter:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter", "alfa_aligment_statistics_filter.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics_filter",
+        output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_filter")),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics_filter.log")
+    threads:    8
+    conda:
+        os.path.join(config["envs"], "alfa_1.1.1.yaml")
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
+
+rule alfa_aligment_statistics_unique_mappers:
+    input:
+        bam = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"), sample1=get_samples()),
+        bai = expand(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), sample1=get_samples()),
+        alfa_index_stranded = os.path.join(config["output_dir"], "annotation", "alfa_genome_index.stranded.ALFA_index")
+    output:
+        pdf = os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers", "alfa_aligment_statistics_unique_mappers.Biotypes.pdf")
+    params:
+        genome_index_basename = os.path.join(config["output_dir"], "annotation", "alfa_genome_index"),
+        output_prefix = "alfa_aligment_statistics_unique_mappers",
+        output_dir = os.path.abspath(os.path.join(config["output_dir"], "plots", "alfa_aligment_statistics_unique_mappers")),
+        bam_and_sample_name = expand(str(os.path.join(config["output_dir"], "{sample1}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam ")) +str("{sample1}"), sample1=get_samples()),
+        strandness = "forward"
+    log:
+        os.path.join(config["local_log"],"alfa_aligment_statistics_unique_mappers.log")
+    threads:    20
+    conda:
+        os.path.join(config["envs"], "alfa_1.1.1.yaml")
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        alfa \
+        -g {params.genome_index_basename} \
+        --bam {params.bam_and_sample_name} \
+        -d 2 \
+        --keep_ambiguous \
+        --processors {threads} \
+        --strandness {params.strandness} \
+        --pdf {params.output_prefix} \
+        --temp_dir {params.output_dir} \
+        -o {params.output_dir}; \
+        ) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### pre-process reads
+################################################################################
+################################################################################
+################################################################################
+
+rule detect_umis:
+    input:
+        fq_1 = lambda wildcards: get_fq_1(wildcards),
+        script = os.path.join(config["scripts"], "detect_umis_small_RNAs.py"),
+    output:
+        out = os.path.join(config["output_dir"], "{sample}", "potential_umis", "{kmer_len}", "counts.tsv")
+    params:
+        adapter = config["adapter"],
+        extend_after_adapter = "{kmer_len}",
+    conda:
+        os.path.join(config["envs"], "pandas_1.0.1_biopython_1.70.yaml")
+    log:
+        os.path.join(config["local_log"], "detect_umis_{sample}_{kmer_len}.log")
+    shell:
+        "(python {input.script} \
+        --fastq <(zcat {input.fq_1}) \
+        --adapter {params.adapter} \
+        --extend-after-adapter {params.extend_after_adapter} \
+        --out {output.out} \
+        --verbose) &> {log}"
+
+rule calculate_frequency_for_UMI_detection:
+    input:
+        fq_1 = lambda wildcards: get_fq_1(wildcards),
+        script = os.path.join(config["scripts"], "calculate_frequency_for_UMI_detection.py"),
+    output:
+        out = os.path.join(config["output_dir"], "{sample}", "frequency_for_UMI_detection", "frequency.tsv")
+    params:
+        adapter = config["adapter"]
+    conda:
+        os.path.join(config["envs"], "pandas_1.0.1_biopython_1.76_numpy_1.16.yaml")
+    log:
+        os.path.join(config["local_log"], "calculate_frequency_for_UMI_detection_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --fastq <(zcat {input.fq_1}) \
+        --adapter {params.adapter} \
+        --out {output.out} \
+        --verbose \
+        ) &> {log}"
+
+rule separate_reads_based_on_adapter_and_umi:
+    input:
+        fq_1 = lambda wildcards: get_fq_1(wildcards),
+        script = os.path.join(config["scripts"], "separate_reads_based_on_adapter_and_umi.py"),
+    output: 
+        fq =  os.path.join(config["output_dir"], "{sample}", "split_reads", "adapter_and_umi_present.fastq.gz")
+    params:
+        out = os.path.join(config["output_dir"], "{sample}", "split_reads"),
+        adapter = config["adapter"],
+        umi_length = config["umi_length"]
+    conda:
+        os.path.join(config["envs"], "pandas_1.0.1_biopython_1.76_numpy_1.16.yaml")
+    log:
+        os.path.join(config["local_log"], "separate_reads_based_on_adapter_and_umi_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --fastq <(zcat {input.fq_1}) \
+        --adapter {params.adapter} \
+        --umi-length {params.umi_length} \
+        --out {params.out} \
+        --attach-umis-to-header \
+        --compress \
+        --verbose \
+        ) &> {log}"
+
+rule trim_3p_adapter_SE:
+    input:
+        reads =  os.path.join(config["output_dir"], "{sample}", "split_reads", "adapter_and_umi_present.fastq.gz")
+    output:
+        reads = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter", "trim_3p_adapter.fastq.gz")
+    params:
+        adapter = config["adapter"],
+        error_rate = 0.1,
+        minimum_length = 15,
+        overlap = 3,
+    log:
+        os.path.join(config["local_log"], "trim_3p_adapter_SE_{sample}.log")
+    threads:    6
+    conda:
+        os.path.join(config["envs"], "cutadapt_2.3.yaml")
+    shell:
+        "(cutadapt \
+        --adapter {params.adapter} \
+        --error-rate {params.error_rate} \
+        --minimum-length {params.minimum_length} \
+        --overlap {params.overlap} \
+        --cores {threads} \
+        {input.reads} | gzip > {output.reads}) &> {log}"
+
+rule filter_low_quality_reads:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter", "trim_3p_adapter.fastq.gz")
+    output:
+        reads = os.path.join(config["output_dir"], "{sample}", "filter_low_quality_reads", "filter_quality.fastq.gz")
+    params:
+        q = "20",
+        p = "100",
+        Q = "33",
+        z = "-z"
+    log:
+        os.path.join(config["local_log"], "filter_low_quality_reads_{sample}.log")
+    threads:    2
+    conda:
+        os.path.join(config["envs"], "fastx_toolkit_0.0.14.yaml")
+    shell:
+        "(fastq_quality_filter \
+        -q {params.q} \
+        -p {params.p} \
+        -Q {params.Q} \
+        {params.z} \
+        -i <(zcat {input.reads}) \
+        -o {output.reads}) &> {log}"
+
+rule collapse_reads_based_on_umi:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "filter_low_quality_reads", "filter_quality.fastq.gz"), 
+        script = os.path.join(config["scripts"], "collapse_reads_based_on_umi.py")
+    output:
+        reads = os.path.join(config["output_dir"], "{sample}", "collapse_reads", "collapsed.fastq.gz"),
+    params:
+        out = os.path.join(config["output_dir"], "{sample}", "collapse_reads")
+    log:
+        os.path.join(config["local_log"], "collapse_reads_based_on_umi_{sample}.log")
+    threads:    2
+    conda:
+        os.path.join(config["envs"], "pandas_1.0.1_biopython_1.76_numpy_1.16.yaml")
+    shell:
+        "(python {input.script} \
+        --fastq <(zcat {input.reads}) \
+        --out {params.out} \
+        --compress \
+        --verbose \
+        ) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### alignment files
+################################################################################
+################################################################################
+################################################################################
+
+rule bowtie_align:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "collapse_reads", "collapsed.fastq.gz"),
+        bowtie_index = config["bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai")
+    params:
+        index_prefix = config["bowtie_index"] + "/bowtie"
+    threads:   8
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"bowtie_align_{sample}.log")
+    shell:
+        "(bowtie \
+        -v 0 \
+        --all \
+        --best \
+        --strata \
+        --sam \
+        --fr \
+        --threads {threads} \
+        {params.index_prefix} \
+        <(zcat {input.reads}) \
+        | samtools view -bS - \
+        | samtools sort \
+        -m 10G \
+        --threads {threads} \
+        --output-fmt BAM - \
+        -o {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai}; \
+        ) &> {log}"
+
+rule filter_RNAs:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
+        gtf = config["gtf_canonical_geneset_wormbase"],
+        script = os.path.join(config["scripts"], "filter_RNAs.py"),
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
+    params:
+        filter_RNAs = config["filter_RNAs"],
+        filter_chromosomes = config["filter_chromosomes"]
+    log:
+        os.path.join(config["local_log"],"filter_RNAs_{sample}.log")
+    threads:    2
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(python {input.script} \
+        --gtf {input.gtf} \
+        --bam {input.bam} \
+        --filter_RNAs {params.filter_RNAs} \
+        --filter_chromosomes {params.filter_chromosomes} \
+        --bam_out {output.bam} \
+        --verbose; \
+        samtools index -@ {threads} {output.bam} {output.bai};)"
+
+rule samtools_keep_unique_mappers:
+    """
+    keep unique mappers
+    """
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai")
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"),
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"samtools_keep_unique_mappers_{sample}.log")
+    shell:
+        "(cat \
+        <(samtools view -H {input.bam}) \
+        <(samtools view {input.bam} |  \
+        grep -P \"\tXM\:i\:2\$\")  | \
+        samtools view -bS - > {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai}; \
+        ) &> {log}"
+
+rule filter_RNAs_bam_to_fastq:
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+        script = os.path.join(config["scripts"], "bam2fastq.py")
+    output:
+        fastq = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.fastq")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"],"filter_RNAs_bam_to_fastq_{sample}.log")
+    shell:
+        "(python {input.script} \
+        --bam {input.bam} \
+        --fastq {output.fastq} \
+        --verbose) &> {log}"
+
+rule bowtie_align_1_alignment_per_read:
+    input:
+        reads = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.fastq"),
+        bowtie_index = config["bowtie_index"]
+    output:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam.bai")
+    params:
+        index_prefix = config["bowtie_index"] + "/bowtie"
+    threads:   8
+    conda:
+        os.path.join(config["envs"], "bowtie_1.2.3_samtools_1.9.yaml")
+    log:
+        os.path.join(config["local_log"],"bowtie_align_{sample}.log")
+    shell:
+        "(bowtie \
+        -v 0 \
+        --all \
+        -M 1 \
+        --best \
+        --strata \
+        --sam \
+        --threads {threads} \
+        {params.index_prefix} \
+        {input.reads} \
+        | samtools view -bS - \
+        | samtools sort \
+        -m 10G \
+        --threads {threads} \
+        --output-fmt BAM - \
+        -o {output.bam}; \
+        samtools index -@ {threads} {output.bam} {output.bai}; \
+        ) &> {log}"
+
+################################################################################
+################################################################################
+################################################################################
+### counts
+################################################################################
+################################################################################
+################################################################################
+
+rule htseq_count__alignment_sorted_filtered_unique_mappers:
+    """
+    count reads in the opposite strand of genes
+    (here 22G RNAs should fall)
+    """
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai"), 
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv")
+    params:
+        mode = "{mode}"
+    log:
+        os.path.join(config["local_log"],"htseq_count__alignment_sorted_filtered_unique_mappers_{mode}_{sample}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded {params.mode} \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        --nonunique none \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+rule for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_alignment_sorted_filtered_unique_mappers_{mode}.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"],"for_DE_htseq_count__alignment_sorted_filtered_unique_mappers_{sample}_{mode}.log")
+    run:
+        df = pd.read_csv(input.counts, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+rule htseq_count__1_alignment_per_read:
+    """
+    count reads in the opposite strand of genes
+    (here 22G RNAs should fall)
+    """
+    input:
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.1_alignment_per_read.bam.bai"),
+        gtf = os.path.join(config["output_dir"], "annotation", "annotation_filtered.gtf")
+    output:
+        htseq_counts_table = os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv")
+    params:
+        mode = "{mode}"
+    log:
+        os.path.join(config["local_log"],"htseq_count__1_alignment_per_read_{mode}_{sample}.log")
+    threads:    1
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(htseq-count \
+        --format bam \
+        --stranded {params.mode} \
+        --type exon \
+        --idattr gene_id \
+        --mode union \
+        -a 0 \
+        --nonunique none \
+        --secondary-alignments ignore \
+        --supplementary-alignments ignore \
+        {input.bam} \
+        {input.gtf} > {output.htseq_counts_table}) 2> {log}"
+
+rule for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv")
+    output:
+        counts = os.path.join(config["output_dir"], "{sample}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv")
+    params:
+        sample_name = "{sample}"
+    log:
+        os.path.join(config["local_log"],"for_DE_htseq_count__1_alignment_per_read_{sample}_{mode}.log")
+    run:
+        df = pd.read_csv(input.counts, header=None, sep="\t")
+        df.columns = ["Name", "counts"]
+        df = df[~df["Name"].str.startswith("__")]
+        df.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+################################################################################
+################################################################################
+### collect counts
+################################################################################
+################################################################################
+################################################################################
+
+rule collect_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        counts = lambda wildcards: expand(
+            os.path.join(config["output_dir"], "{sample}", "htseq", "alignment_sorted_filtered_unique_mappers_{mode}.tsv"),
+            sample=get_samples(), mode=wildcards.mode)
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "alignment_sorted_filtered_unique_mappers_{mode}", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_htseq_count__alignment_sorted_filtered_unique_mappers_{mode}.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=None, sep="\t")
+            df.columns = ["Name", "counts"]
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+rule collect_htseq_count__1_alignment_per_read:
+    input:
+        counts = lambda wildcards: expand(
+            os.path.join(config["output_dir"], "{sample}", "htseq", "1_alignment_per_read_{mode}.tsv"),
+            sample=get_samples(), mode=wildcards.mode)
+    output:
+        counts = os.path.join(config["output_dir"], "counts", "1_alignment_per_read_{mode}", "counts.tsv")
+    log:
+        os.path.join(config["local_log"], "collect_htseq_count__1_alignment_per_read_{mode}.log")
+    run:
+        dfs = []
+        for count in input.counts:
+            df = pd.read_csv(count, header=None, sep="\t")
+            df.columns = ["Name", "counts"]
+            sample_name = count.strip().split("/")[1]
+            df.set_index("Name", inplace=True)
+            df['counts'] = df['counts'].round()
+            df.columns = df.columns + "_" + sample_name
+            df.reset_index(inplace=True)
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='Name', how="outer"), dfs)
+        df_final.fillna(0, inplace=True)
+        df_final.to_csv(output.counts, header=True, sep="\t", index=False)
+
+################################################################################
+### summarize number of reads per step
+################################################################################
+
+rule summarize_number_of_reads:
+    input:
+        input_reads = lambda wildcards: get_fq_1(wildcards),
+        adapter_and_umi_present =  os.path.join(config["output_dir"], "{sample}", "split_reads", "adapter_and_umi_present.fastq.gz"),
+        trim_3p_adapter = os.path.join(config["output_dir"], "{sample}", "trim_3p_adapter", "trim_3p_adapter.fastq.gz"),
+        filter_quality = os.path.join(config["output_dir"], "{sample}", "filter_low_quality_reads", "filter_quality.fastq.gz"),
+        collapsed = os.path.join(config["output_dir"], "{sample}", "collapse_reads", "collapsed.fastq.gz"),
+        bam = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam"),
+        bai = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.bam.bai"),
+        bam_filtered = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam"),
+        bai_filtered = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.bam.bai"),
+        bam_filtered_unique = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam"),
+        bai_filtered_unique = os.path.join(config["output_dir"], "{sample}", "bowtie", "alignment.sorted.filtered.unique_mappers.bam.bai")
+    output:
+        stats = os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt")
+    log:
+        os.path.join(config["local_log"],"summarize_number_of_reads_{sample}.log")
+    threads:    2
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    shell:
+        "(\
+        paste <(echo 'input_reads') <(zcat {input.input_reads} | grep -P '^@' | wc -l) >> {output.stats}; \
+        paste <(echo 'adapter_and_umi_present') <(zcat {input.adapter_and_umi_present} | grep -P '^@' | wc -l) >> {output.stats}; \
+        paste <(echo 'trim_3p_adapter') <(zcat {input.trim_3p_adapter} | grep -P '^@' | wc -l) >> {output.stats}; \
+        paste <(echo 'filter_quality') <(zcat {input.filter_quality} | grep -P '^@' | wc -l) >> {output.stats}; \
+        paste <(echo 'collapsed') <(zcat {input.collapsed} | grep -P '^@' | wc -l) >> {output.stats}; \
+        paste <(echo 'mapped_reads') <(samtools view {input.bam} | awk '{{if (($2==0) || ($2==16) ) {{print($_)}}}}' | cut -f 1 | sort -u | wc -l) >> {output.stats}; \
+        paste <(echo 'mapped_reads_filtered') <(samtools view {input.bam_filtered} | awk '{{if (($2==0) || ($2==16) ) {{print($_)}}}}' | cut -f 1 | sort -u | wc -l) >> {output.stats}; \
+        paste <(echo 'mapped_reads_filtered_unique') <(samtools view {input.bam_filtered_unique} | awk '{{if (($2==0) || ($2==16) ) {{print($_)}}}}' | cut -f 1 | sort -u | wc -l) >> {output.stats}; \
+        ) 2> {log}"
+
+rule collapse_summarize_number_of_reads:
+    input:
+        stats = expand(os.path.join(config["output_dir"], "{sample}", "stats", "stats.txt"), sample=get_samples())
+    output:
+        stats = os.path.join(config["output_dir"], "summary", "stats", "stats.tsv"),
+        steps_plot = os.path.join(config["output_dir"], "summary", "stats", "stats.pdf")
+    params:
+        sample_name = expand("{sample}", sample=get_samples())
+    log:
+        os.path.join(config["local_log"],"collapse_summarize_number_of_reads.log")
+    threads:    1
+    run:
+        dfs = []
+        for i in range(0, len(input.stats)):
+            df = pd.read_csv(input.stats[i], header=None, sep="\t")
+            sample_name = params.sample_name[i]
+            df.columns = ["steps", sample_name]
+            dfs.append(df)
+        df_final = reduce(lambda left,right: pd.merge(left, right, on='steps', how="outer"), dfs)
+        df_final.to_csv(output.stats, header=True, sep="\t", index=False)        
+        df_final.set_index("steps", inplace=True)
+        df_final.T.plot.bar(figsize=(20,15)).figure.savefig(output.steps_plot)
+
+################################################################################
+################################################################################
+################################################################################
+### DE
+################################################################################
+################################################################################
+################################################################################
+
+rule edgeR_prepare_pairs_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "forDE_alignment_sorted_filtered_unique_mappers_{mode}.tsv"), sample1=config["experiment_samples"][wildcards.experiment1], mode=wildcards.mode),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "forDE_alignment_sorted_filtered_unique_mappers_{mode}.tsv"), sample2=config["experiment_samples"][wildcards.experiment2], mode=wildcards.mode),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_info"],
+        repeats_info = config["repeats_info"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__alignment_sorted_filtered_unique_mappers__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        # read in tables
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")
+        # merges
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(repeats_info, how="left", on="id")
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all = table_all.merge(repeats_info, how="left", on="id")
+        # write out files
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)
+
+rule edgeR_prepare_pairs_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts1 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample1}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv"), sample1=config["experiment_samples"][wildcards.experiment1], mode=wildcards.mode),
+        counts2 = lambda wildcards: expand(os.path.join(config["output_dir"], "{sample2}", "htseq", "forDE_1_alignment_per_read_{mode}.tsv"), sample2=config["experiment_samples"][wildcards.experiment2], mode=wildcards.mode),
+        script = os.path.join(config["scripts"], "edger_prepare_files.py")
+    output:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs"),
+        condition1_name = "{experiment1}",
+        condition2_name = "{experiment2}"
+    conda:
+        os.path.join(config["envs"], "htseq_0.11.2_pandas_1.0.1_samtools_1.9_seaborn_0.9.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_prepare_pairs_for_DE_htseq_count__1_alignment_per_reads__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+	shell:
+		"(mkdir -p {params.output_dir}; \
+		python {input.script} \
+		--input_condition1 '{input.counts1}' \
+		--condition1_name {params.condition1_name} \
+		--input_condition2 '{input.counts2}' \
+		--condition2_name {params.condition2_name} \
+		--outfile_counts {output.counts} \
+		--outfile_conditions {output.conditions}) &> {log}"
+
+rule edgeR_differential_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        counts = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "counts.table"),
+        conditions = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "prepare_pairs", "conditions"),
+        script = os.path.join(config["scripts"], "DE_simple.R")
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv")
+    params:
+        output_dir = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR"),
+    conda:
+        os.path.join(config["envs"], "DE.yaml")
+    log:
+        os.path.join(config["local_log"], "edgeR_differential_for_DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    shell:
+        "(mkdir -p {params.output_dir}; \
+        Rscript {input.script} \
+        --conditions {input.conditions} \
+        --counts {input.counts} \
+        --outfolder {params.output_dir}) &> {log}"
+
+rule add_gene_info_edgeR_differential_for_DE_htseq_count__1_alignment_per_read:
+    input:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table.tsv"),
+        gene_info = config["gene_info"],
+        repeats_info = config["repeats_info"]
+    output:
+        table_FDR_low_tsv = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_FDR_low_with_gene_info.tsv"),
+        table_all = os.path.join(config["output_dir"], "filter", "DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}", "DE_edgeR", "final_table_with_gene_info.tsv")
+    log:
+        os.path.join(config["local_log"], "add_gene_info_edgeR_differential_for_DE_htseq_count__1_alignment_per_read__{mode}__{experiment1}__{experiment2}.log")
+    threads:    1
+    run:
+        # read in tables
+        table_FDR_low_tsv = pd.read_csv(input.table_FDR_low_tsv, header=0, sep="\t")
+        table_all = pd.read_csv(input.table_all, header=0, sep="\t")
+        gene_info = pd.read_csv(input.gene_info, header=None)
+        gene_info.columns = ['taxonomy_id', 'id', 'gene_name', 'sequence', 'status', 'gene_biotype']
+        repeats_info = pd.read_csv(input.repeats_info, header=0, sep="\t")
+        # merges
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(gene_info, how="left", on="id")
+        table_FDR_low_tsv = table_FDR_low_tsv.merge(repeats_info, how="left", on="id")
+        table_all = table_all.merge(gene_info, how="left", on="id")
+        table_all = table_all.merge(repeats_info, how="left", on="id")
+        # write out files
+        table_FDR_low_tsv.to_csv(output.table_FDR_low_tsv, header=True, sep="\t", index=False)
+        table_all.to_csv(output.table_all, header=True, sep="\t", index=False)

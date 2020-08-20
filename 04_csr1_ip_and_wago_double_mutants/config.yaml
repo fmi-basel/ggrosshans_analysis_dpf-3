@@ -1,0 +1,62 @@
+---
+  # general
+  samples: "samples.tsv"
+  output_dir: "results"
+  logs: "logs"
+  local_log: "logs/local_log"
+  cluster_log: "logs/cluster_log"
+  scripts: "../scripts"
+  envs: "../envs/"
+
+  # annotation
+  gtf_canonical_geneset_wormbase: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.canonical_geneset.gtf"
+  gtf: "../00_annotation/results/annotation/canonical_geneset.exons.no_repeat_overlap_and_ce_11_repeats.filtered.merged.gtf"
+  genome: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.genomic.fa"
+  gene_info: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/c_elegans.PRJNA13758.WS270.geneIDs.txt"
+  repeats_info: "../00_annotation/results/annotation/ce_11_repeats.filtered.tsv"
+  bowtie_index: "../00_annotation/results/indexes/genome/bowtie"
+  genome_size: "/tungstenfs/groups/gbioinfo/DB/WormBase/WS270/sizes.genome"
+
+  # rule params
+  transcript_biotype: "protein_coding,mRNA,repeat"
+  kmer_len: ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"]
+  umi_length: 12
+  adapter: "AACTGTAGGCACCATCAAT"
+  filter_RNAs: "\"rRNA rRNA_pseudogene tRNA tRNA_pseudogene\""
+  filter_chromosomes: "MtDNA"
+
+  htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["reverse"]
+
+  # samples
+  experiment_samples: {
+    HW3115_INPUT: [HW3115_Replicate_A_INPUT, HW3115_Replicate_B_INPUT, HW3115_Replicate_C_INPUT],
+    HW3128_INPUT: [HW3128_Replicate_A_INPUT, HW3128_Replicate_B_INPUT, HW3128_Replicate_C_INPUT],
+    HW3134_INPUT: [HW3134_Replicate_A_INPUT, HW3134_Replicate_B_INPUT, HW3134_Replicate_C_INPUT],
+    HW3135_INPUT: [HW3135_Replicate_A_INPUT, HW3135_Replicate_B_INPUT, HW3135_Replicate_C_INPUT],
+    HW3115_IP: [HW3115_Replicate_A_IP, HW3115_Replicate_B_IP, HW3115_Replicate_C_IP],
+    HW3128_IP: [HW3128_Replicate_A_IP, HW3128_Replicate_B_IP, HW3128_Replicate_C_IP],
+    HW3134_IP: [HW3134_Replicate_A_IP, HW3134_Replicate_B_IP, HW3134_Replicate_C_IP],
+    HW3135_IP: [HW3135_Replicate_A_IP, HW3135_Replicate_B_IP, HW3135_Replicate_C_IP],
+    IP_WAGO-1: [IP_WAGO-1_A, IP_WAGO-1_B, IP_WAGO-1_C],
+    Input_WAGO-1: [Input_WAGO-1_A, Input_WAGO-1_B, Input_WAGO-1_C],
+
+  }
+
+  # comparisons
+  combinations: [[HW3115_INPUT, HW3115_IP],
+                 [HW3128_INPUT, HW3128_IP],
+                 [HW3134_INPUT, HW3134_IP],
+                 [HW3135_INPUT, HW3135_IP],
+                 [HW3134_IP, HW3115_IP],
+                 [HW3135_IP, HW3115_IP],
+                 [HW3134_IP, HW3128_IP],
+                 [HW3135_IP, HW3128_IP],
+                 [HW3128_IP, HW3115_IP],
+                 [Input_WAGO-1, HW3134_INPUT],
+                 [Input_WAGO-1, HW3135_INPUT],
+                 [Input_WAGO-1, HW3134_IP],
+                 [Input_WAGO-1, HW3135_IP],
+                 [IP_WAGO-1, HW3134_IP],
+                 [IP_WAGO-1, HW3135_IP],
+                 ]
+...
