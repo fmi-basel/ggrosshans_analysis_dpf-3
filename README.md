@@ -46,7 +46,7 @@ Download the necessary datasets from GEO/SRA and update the samples.tsv files in
 - 01_small_RNA_seq_15_C
 - 02_total_RNA_seq_15_C
 - 03_WAGO_IPs
-- 04_csr_1_IP
+- 04_csr1_ip_and_wago_double_mutants
 
 Activate the conda environment containing snakemake
 ```bash
