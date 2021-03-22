@@ -27,6 +27,8 @@
 
   htseq_count__alignment_sorted_filtered_unique_mappers_mode: ["reverse"]
 
+  category: ["21T", "22G"]
+
   # samples
   experiment_samples: {
     Input_WAGO-1: [Input_WAGO-1_A, Input_WAGO-1_B, Input_WAGO-1_C],
@@ -56,7 +58,8 @@
                  [IP_WAGO-1_P3G, IP_WAGO-1],
                  [IP_WAGO-1_dpf-3_null, IP_WAGO-1],
                  [IP_WAGO-3_dpf-3_null, IP_WAGO-3],
-                 [IP_WAGO-4_dpf-3_null, IP_WAGO-4]
+                 [IP_WAGO-4_dpf-3_null, IP_WAGO-4],
+                 [Input_WAGO-1, Input_WAGO-1_P3G],
                 ]
 
   combinations_focus: [[IP_WAGO-1_P3G, IP_WAGO-1],
