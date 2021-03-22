@@ -41,3 +41,9 @@ WAGO_9_IP
 GSE52910
 small_RNA_seq_25_C
 total_RNAseq_dpf3_25_C
+plots/motif_analysis/
+plots/WAGO_4_check/
+plots/collelation_total_RNA_and_IPs/
+plots/MA_plot_total_RNA_multimappers/germline_genes.txt
+plots/stats/*
+plots/MA_plot_total_RNA_multimappers/*.xls*
