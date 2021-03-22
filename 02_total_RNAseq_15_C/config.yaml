@@ -29,6 +29,8 @@
   experiment_samples: {
     WT_all: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F, wild_type_G, wild_type_H, wild_type_I],
     WT: [wild_type_A, wild_type_B, wild_type_C, wild_type_D, wild_type_E, wild_type_F], #, wild_type_G, wild_type_H, wild_type_I],
+    WT_ABC: [wild_type_A, wild_type_B, wild_type_C],
+    WT_DEF: [wild_type_D, wild_type_E, wild_type_F],
     WT_last: [wild_type_G, wild_type_H, wild_type_I],
     Dpf_3_null: [Dpf_3_null_A, Dpf_3_null_B, Dpf_3_null_C],
     mut_2: [mut_2_A, mut_2_B, mut_2_C],
@@ -43,5 +45,8 @@
                  [WT_last, mut_7],
                  [WT_all, Dpf_3_null],
                  [WT_all, mut_2],
-                 [WT_all, mut_7]]
+                 [WT_all, mut_7],
+                 [WT_ABC, Dpf_3_null],
+                 [WT_DEF, mut_2]
+]
 ...
